@@ -34,9 +34,9 @@ namespace PhosphorDisplay
 
         public int channels = 2;
 
-        private float horizontalScale = 0.0025f;
-        private float[] verticalScale = new float[] { 0.5f, 1.0f, 1.0f };
-        private float[] verticalOffset = new float[] { 2, -2, 0 };
+        private float horizontalScale = 0.005f;
+        private float[] verticalScale = new float[] { 0.25f, 1.0f, 1.0f };
+        private float[] verticalOffset = new float[] { 0, -2, 0 };
 
         private List<Waveform> waveforms = new List<Waveform>(); 
 
@@ -110,6 +110,11 @@ namespace PhosphorDisplay
 
             // Display all waveforms
             // To do that, we map all waveforms to an display array
+
+            // This array contains the X,Y intensity data per channel
+            // intensity[channel][x position][y position] = number of hits
+            // The number of hits will later determine which pencil is used for drawing.
+            // Which in term makes the specific pixel brighter or dimmer.
             int[][][] intensity = new int[channels][][];
             for (var ch = 0; ch < channels; ch++)
             {
@@ -120,80 +125,120 @@ namespace PhosphorDisplay
             }
             foreach (var wave in myWaveforms)
             {
+                // Process may interpolate the waveform if not enough samples are available.
+                // The draw engine is only capable of doing dots mode.
                 wave.Process(w);
+
+                // The compression ratio is applicable when there are more samples to display than display width is available.
+                // This will mean that it's possible more than 1 sample is displayed on the same X position.
+                // This can increase the number of hits on that specific pixel, and therefor an compression ratio is used.
+                // It's a compromise between detail & accuracy. Higher resolution = better accuracy, at all times.
+                // But also slower to draw.
                 compressionRatio = Math.Max(wave.Samples/w, compressionRatio);
                 var i = 0;
-                for (int s = 0; s < wave.Samples; s++)
+                for (var ch = 0; ch < channels; ch++)
                 {
-                    var waveTime = wave.Horizontal[s] - wave.TriggerTime;
-                    var x =
-                        (int)
-                        ((waveTime/horizontalScale + horizontalDivisions)*
-                         pxPerHorizontalDivision);
-                    if (x < 0) continue;
-                    if (x >= graphWidth) break;
 
-                    for (var ch = 0; ch < channels; ch++)
+                    int yCenter = (int) ((verticalDivisions - verticalOffset[ch])*pxPerVerticalDivision);
+                    for (int s = 0; s < wave.Samples; s++)
                     {
-                        var y = (int)((wave.Data[ch][s]/-verticalScale[ch] +
-                                  verticalDivisions-verticalOffset[ch])*pxPerVerticalDivision);
+                        var waveTime = wave.Horizontal[s] - wave.TriggerTime;
+
+                        // Calculate X position on screen. Check in bounds.
+                        var x =
+                            (int)
+                            ((waveTime/horizontalScale + horizontalDivisions)*
+                             pxPerHorizontalDivision);
+
+                        if (x < 0) continue;
+                        if (x >= graphWidth) break;
+
+                        // Calculate Y position on screen. Check in bounds.
+                        var y = (int) ((wave.Data[ch][s]/-verticalScale[ch])*pxPerVerticalDivision) + yCenter;
 
                         if (y < 0) continue;
                         if (y >= graphHeight) break;
-                        intensity[ch][x][y]++;
-                    }
 
-                    i++;
+                        // Make a hit for this pixel.
+                        intensity[ch][x][y]++;
+
+
+                        i++;
+                    }
                 }
             }
+
             // Lock bits on map
+            // This is used for a much much faster setpixel performance. The bitmap is accesisable via a raw byte arrya, containing bit information.
+            // The format of this array depends on the pixelformat, which is 32-bit R-G-B-A.
+            // Alpha seems to be broken, so we modulate the alpha via the pencil.
             var dat = graph.LockBits(e.ClipRectangle, ImageLockMode.ReadWrite, graph.PixelFormat);
             var ptr = dat.Scan0;
             var bytesPerPixel = 4;
             byte[] bitmapBuffer = new byte[w*h*bytesPerPixel];
             Marshal.Copy(ptr, bitmapBuffer, 0, bitmapBuffer.Length);
 
+            // From here, we must edit our image in the bitmapBuffer, intead via the bitmap normal API routines.
+
             var k = 0;
+
+            // We take the hit map
             foreach (var channel in intensity)
             {
                 var chColor = channelColors[k++];
                 var noOfPens = myWaveforms.Count*compressionRatio+1;
                 var penPallette = new byte[noOfPens][];
 
+                // Generate a set of color.
                 for (int i = 0; i < noOfPens; i++)
                 {
-                    var perc = (float)Math.Pow(i*1.0f/noOfPens,0.45) * 95.0f+ 5f;
+                    // The accurateness and contrast of the intensity graded display can be changed here.
+                    // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
+                    // The offset will also determine how visible less frequent options are seen.
+                    var perc = (float)Math.Pow(i*1.0f/noOfPens,0.45) * 95.0f+ 25f;
                     
+                    // Fix perc if <0% or >100% or "ERR"
                     if (perc >= 100) perc = 100;
                     if (perc <= 0) perc = 0;
                     if (float.IsNaN(perc) || float.IsInfinity(perc)) perc = 100;
-                    var c = new byte[3]
+                    
+                    // Colors are saved raw too, because this is faster to access.
+                    var c = new byte[4]
                                 {
-                                    (byte) (chColor[0]*perc/100),
+                                    (byte) (chColor[2]*perc/100),
                                     (byte) (chColor[1]*perc/100),
-                                    (byte) (chColor[2]*perc/100)
+                                    (byte) (chColor[0]*perc/100),
+                                    255
                                 };
 
                     penPallette[i] = c;
                 }
+
+                // Walk through the entire "image"
                 for (var x = 0; x < w; x++)
                 {
                     for (var y = 0; y < h; y++)
                     {
-                        var chVal =(int)(channel[x][y] );
+                        var chVal = (int) (channel[x][y]);
+
                         if (chVal > 0)
                         {
+                            // We only modify when there was a hit here.
+                            // i contains the index inside the bitmapBuffer we must edit.
                             var i = (y + offsetVerticalDivision)*w + x + offsetHorizontalDivision;
                             i *= bytesPerPixel;
-                            //chVal /= compressionRatio;
+
+                            // We pick a color
                             if (chVal >= noOfPens)
                                 chVal = noOfPens-1;
                             var c = penPallette[chVal];
 
-                            bitmapBuffer[i] = c[2]; // blue
+                            // And copy it.
+                            bitmapBuffer[i] = c[0]; // blue
                             bitmapBuffer[i + 1] = c[1]; // green
-                            bitmapBuffer[i + 2] = c[0]; // red
-
+                            bitmapBuffer[i + 2] = c[2]; // red
+                            bitmapBuffer[i + 3] = c[3]; // alpha
+                            
                         }
                     }
                 }
