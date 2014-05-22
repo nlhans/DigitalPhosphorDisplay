@@ -11,6 +11,7 @@ namespace PhosphorDisplay
         public int Channels;
         public float SampleTime = -1f;
         public float LastSampleTime = 0.0f;
+        private int MemDepth;
 
         public Waveform(int channels, int memDepth)
         {
@@ -19,11 +20,13 @@ namespace PhosphorDisplay
             for (int ch = 0; ch < channels; ch++)
                 Data[ch] = new float[memDepth];
 
+            MemDepth = memDepth;
             Horizontal = new float[memDepth];
         }
 
         public void Store(float time, float[] ch)
         {
+            if (Samples >= MemDepth) return;
             Horizontal[Samples] = time;
             for (int i = 0; i < Channels; i++)
                 Data[i][Samples] = ch[i];
@@ -40,7 +43,7 @@ namespace PhosphorDisplay
 
         public void Process(int requiredWidth)
         {
-            if (requiredWidth > Samples*2)
+            if (requiredWidth >= Samples*2)
             {
                 // We're going to interpolate signals
                 var scaleFactor = requiredWidth/Samples;
