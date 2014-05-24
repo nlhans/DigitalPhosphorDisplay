@@ -85,7 +85,8 @@ namespace PhosphorDisplay
                 lock (framesHistoryMutex)
                 {
                     display.AddRange(framesHistory);
-                    framesHistory.RemoveRange(0, framesHistory.Count/10);
+                    framesHistory.Clear();
+                    //framesHistory.RemoveRange(0, framesHistory.Count/10);
                 }
                 display.Invalidate();
 

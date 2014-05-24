@@ -36,6 +36,8 @@ namespace PhosphorDisplay
 
         public int channels = 2;
 
+        public bool DotsOnly { get; private set; }
+
         private float horizontalScale = 0.0025f;
         private float[] verticalScale = new float[] {2.0f/1000000, 1.00f, 0.5f};
         private float[] verticalOffset = new float[] {0, 0, 0f};
@@ -49,6 +51,8 @@ namespace PhosphorDisplay
         public ucPhosphorDisplay()
         {
             InitializeComponent();
+
+            DotsOnly = false;
 
             SetStyle(ControlStyles.DoubleBuffer, true);
             SetStyle(ControlStyles.AllPaintingInWmPaint, true);
@@ -147,7 +151,8 @@ namespace PhosphorDisplay
                 {
                     // Process may interpolate the waveform if not enough samples are available.
                     // The draw engine is only capable of doing dots mode.
-                    wave.Process(w);
+                    if (DotsOnly)
+                        wave.Process(w);
 
                     // The compression ratio is applicable when there are more samples to display than display width is available.
                     // This will mean that it's possible more than 1 sample is displayed on the same X position.
@@ -155,9 +160,11 @@ namespace PhosphorDisplay
                     // It's a compromise between detail & accuracy. Higher resolution = better accuracy, at all times.
                     // But also slower to draw.
                     compressionRatio = Math.Max(wave.Samples/w, compressionRatio);
-
                     for (var ch = 0; ch < channels; ch++)
                     {
+                        var lastX = -1;
+                        var lastY = -1;
+                        var sameX = 0;
 
                         int yCenter = (int) ((verticalDivisions - verticalOffset[ch])*pxPerVerticalDivision);
                         for (int s = 0; s < wave.Samples; s++)
@@ -170,17 +177,74 @@ namespace PhosphorDisplay
                                 Math.Round((waveTime/horizontalScale + horizontalDivisions)*
                                            pxPerHorizontalDivision);
 
-                            if (x < 0) continue;
-                            if (x >= graphWidth) break;
+                            if (x < 0)
+                                continue;
+                            if (x == graphWidth)
+                                x = graphWidth - 1;
+                            if (x > graphWidth)
+                                break;
 
                             // Calculate Y position on screen. Check in bounds.
                             var y = (int) ((wave.Data[ch][s]/-verticalScale[ch])*pxPerVerticalDivision) + yCenter;
 
-                            if (y < 0) y = 0;
-                            if (y >= graphHeight) y = graphHeight;
+                            if (y < 0)
+                                y = 0;
+                            if (y >= graphHeight)
+                                y = graphHeight;
 
                             // Make a hit for this pixel.
-                            intensity[ch][x][y]++;
+                            if (lastX >= 0 && !DotsOnly)
+                            {
+                                var dx = x - lastX;
+                                var dy = y - lastY;
+                                if (Math.Abs(dx) > Math.Abs(dy))
+                                {
+                                    if (dx > 0)
+                                    {
+                                        for (var xInterpolated = 0; xInterpolated < dx; xInterpolated++)
+                                        {
+                                            var yInterpolated = y - dy*xInterpolated/dx;
+                                            intensity[ch][x - xInterpolated][yInterpolated]++;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        for (var xInterpolated = 0; xInterpolated < -dx; xInterpolated++)
+                                        {
+                                            var yInterpolated = y + dy * xInterpolated / dx;
+                                            intensity[ch][x - xInterpolated][yInterpolated]++;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    if (dy > 0)
+                                    {
+                                        for (var yInterpolated = 0; yInterpolated < dy; yInterpolated++)
+                                        {
+                                            var xInterpolated = lastX + dx*yInterpolated/dy;
+                                            intensity[ch][xInterpolated][y - yInterpolated]++;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        for (var yInterpolated = 0; yInterpolated > -dy; yInterpolated++)
+                                        {
+                                            var xInterpolated = x - dx*yInterpolated/dy;
+                                            intensity[ch][xInterpolated][y - yInterpolated]++;
+                                        }
+                                    }
+                                }
+
+                                if (lastX != x) sameX = 2;
+                                else sameX++;
+                                compressionRatio = Math.Max(sameX, compressionRatio);
+                            }
+                            else
+                                intensity[ch][x][y]++;
+
+                            lastX = x;
+                            lastY = y;
                         }
                     }
                 }
@@ -212,7 +276,7 @@ namespace PhosphorDisplay
                         // The accurateness and contrast of the intensity graded display can be changed here.
                         // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
                         // The offset will also determine how visible less frequent options are seen.
-                        var perc = (float) Math.Pow(i*1.0f/noOfPens, 0.5)*2*125.0f + 1f;
+                        var perc = (float) Math.Pow(i*1.0f/noOfPens, 0.5)*100.0f + 1f;
 
                         // Fix perc if <0% or >100% or "ERR"
                         if (perc >= 100) perc = 100;
@@ -248,6 +312,7 @@ namespace PhosphorDisplay
                                 // We pick a color
                                 if (chVal >= noOfPens)
                                     chVal = noOfPens - 1;
+                                
                                 var c = penPallette[chVal];
 
                                 // And copy it.

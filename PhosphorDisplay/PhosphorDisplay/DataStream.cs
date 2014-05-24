@@ -148,7 +148,7 @@ namespace PhosphorDisplay
 
                 while (bufferWaiting > 0)
                 {
-                    acqSamples = 401;
+                    acqSamples = 1920*4;
                     oversample = 1;
 
                     var dt = DateTime.Now.Subtract(lastSamplePerSecondMeasurement);
