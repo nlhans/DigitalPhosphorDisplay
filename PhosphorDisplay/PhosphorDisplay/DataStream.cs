@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -18,7 +19,7 @@ namespace PhosphorDisplay
 
         public double MaximumAmplitude { get { return 1300000.0 / Gain; } }
         public int Sample;
-        public int Gain = 10;
+        public int Gain = 1000;
 
         public DateTime StartTime;
 
@@ -29,8 +30,13 @@ namespace PhosphorDisplay
         private Thread _mListener;
         private UdpClient _udp;
 
-        private bool Listening = false;
+        private List<byte[]> buffer = new List<byte[]>();
+        private int bufferWaiting = 0;
 
+        private ManualResetEvent bufferData = new ManualResetEvent(false);
+
+        private int packets = 0;
+        private bool Listening = false;
         public void Start()
         {
             if (_mListener == null)
@@ -39,9 +45,64 @@ namespace PhosphorDisplay
 
                 StartTime = DateTime.Now;
 
+                // make connection
+
+                IPEndPoint ipep = new IPEndPoint(IPAddress.Any, 1234);
+                IPAddress ip = IPAddress.Parse("224.5.6.7");
+
+                _udp = new UdpClient();
+                var ifaceIndex = 0;
+
+                NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (NetworkInterface adapter in nics)
+                {
+                    if (adapter.Name == "Local Area Connection")
+                    {
+
+                        IPv4InterfaceProperties p = adapter.GetIPProperties().GetIPv4Properties();
+                        ifaceIndex = p.Index;
+                        // now we have adapter index as p.Index, let put it to socket option
+                        _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
+                                                    (int)IPAddress.HostToNetworkOrder(p.Index));
+                        break;
+                    }
+                }
+                _udp.Client.Bind(ipep);
+
+                var multOpt = new MulticastOption(ip, ifaceIndex);
+                _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, multOpt);
+
+                _udp.BeginReceive(udpReadMore, null);
+
+                // Create thread
                 _mListener = new Thread(_fListener);
                 _mListener.Priority = ThreadPriority.Highest;
                 _mListener.Start();
+            }
+        }
+
+        private void udpReadMore(IAsyncResult iar)
+        {
+            try
+            {
+                if (_udp == null) return;
+                var any = (IPEndPoint) new IPEndPoint(IPAddress.Any, 1234);
+                var read = _udp.EndReceive(iar, ref any);
+
+                lock (buffer)
+                {
+                    buffer.Add(read);
+                    bufferWaiting++;
+                }
+                packets++;
+                bufferData.Set();
+
+                if (Listening)
+                {
+                    _udp.BeginReceive(udpReadMore, null);
+                }
+            }catch
+            {
             }
         }
 
@@ -61,6 +122,8 @@ namespace PhosphorDisplay
         {
             if (_mListener != null)
             {
+                _udp.Close();
+                _udp = null;
                 Listening = false;
                 _mListener = null;
             }
@@ -69,147 +132,141 @@ namespace PhosphorDisplay
         private void _fListener()
         {
 
+            int oversample = 1, acqSamples = 512;
 
-            IPEndPoint ipep = new IPEndPoint(IPAddress.Any, 1234);
-            IPAddress ip = IPAddress.Parse("224.5.6.7");
+            int samplesPerSecond = 0;
+            int sampleCounter = 0;
+            DateTime lastSamplePerSecondMeasurement = DateTime.Now;
 
-            List<byte> bigBf = new List<byte>();
-
-            var _udp = new UdpClient();
-            var ifaceIndex = 0;
-
-            NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
-            foreach (NetworkInterface adapter in nics)
-            {
-                if (adapter.Name == "Local Area Connection")
-                {
-
-                    IPv4InterfaceProperties p = adapter.GetIPProperties().GetIPv4Properties();
-                    ifaceIndex = p.Index;
-                    // now we have adapter index as p.Index, let put it to socket option
-                    _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
-                                                (int)IPAddress.HostToNetworkOrder(p.Index));
-                    break;
-                }
-            }
-            _udp.Client.Bind(ipep);
-
-            var multOpt = new MulticastOption(ip, ifaceIndex);
-            _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, multOpt);
-
-            List<int> rawSample = new List<int>();
             Waveform f = new Waveform(1, 20480);
 
+            var wasTriggered = false;
+            byte[] b = new byte[0];
             while (Listening)
             {
-                try
+                Thread.Sleep(1);
+
+                while (bufferWaiting > 0)
                 {
+                    acqSamples = 401;
+                    oversample = 1;
 
-                    var any = (IPEndPoint)new IPEndPoint(IPAddress.Any, 1234);
-                    byte[] bf = new byte[1028];
-
-                    bf = _udp.Receive(ref any);
-                    bigBf.AddRange(bf);
-                    while (bigBf.Count >= 1028)
+                    var dt = DateTime.Now.Subtract(lastSamplePerSecondMeasurement);
+                    if (dt.TotalMilliseconds >= 500)
                     {
-                        for (int i = 0; i < bigBf.Count - 4; i++)
+                        sampleCounter *= oversample;
+                        Debug.WriteLine((sampleCounter / (dt.TotalMilliseconds / 1000)) + "sps / " + (packets * 1070 * 8 * 2 / 1000000.0 + "mbit") + " / " + buffer.Count + " residual");
+                        packets = 0;
+                        lastSamplePerSecondMeasurement = DateTime.Now;
+                        samplesPerSecond = sampleCounter;
+                        sampleCounter = 0;
+                        wfms = samplesPerSecond / acqSamples;
+                    }
+
+                    /*var any = (IPEndPoint)new IPEndPoint(IPAddress.Any, 1234);
+
+                    var bf = _udp.Receive(ref any);
+                    buffer.AddRange(bf);
+                    */
+                    lock (buffer)
+                    {
+                        b = buffer[0];
+                        buffer.RemoveAt(0);
+                        bufferWaiting--;
+                    }
+                    if (b == null) continue;
+
+                    int k = 2;
+                    var rawSample = new short[512];
+
+                    while (k < 514)
+                    {
+                        var t = b[k*2];
+                        b[k*2] = b[k*2 + 1];
+                        b[k*2 + 1] = t;
+
+                        var d = BitConverter.ToInt16(b, k*2);
+                        rawSample[k-2]=d;
+
+                        k++;
+                    }
+
+                    var peak = 0.0f;
+                    for (int i = 0; i < 512; i += oversample)
+                    {
+                        Sample++;
+                        sampleCounter++;
+
+                        int d = rawSample[i];
+                        if (oversample>=2)
+                        for (int j = i+1; j < i + oversample; j++)
+                            d += rawSample[j];
+
+                        var volt = 3.3f;
+
+                        var currentValue = d*1.0f/oversample;
+                        if (true)
                         {
-                            if (bigBf[i] == 0 && bigBf[i + 1] == 0 && bigBf[i + 2] == 0 && bigBf[i + 3] == 0)
-                            {
-                                bigBf.RemoveRange(0, i + 4);
-                                break;
-                            }
+                            currentValue = currentValue/32768.0f/1/1.5f*1.2f*23;
+                            currentValue /= 10; // shunt
+
+                            currentValue /= Gain; // gain
+
+                            currentValue -= volt/15220.588235294117647058823529412f;
+
+                            currentValue *= 1000000;
+                            if (Gain == 10)
+                                currentValue -= 148.3f;
+                            if (Gain == 1)
+                                currentValue -= 1300;
+                            if (Gain == 1000)
+                                currentValue -= 5.7f;
+                            if (Gain == 100)
+                                currentValue -= 10.64f + 8.8f;
+
+                            currentValue /= 1.02f;
+                            currentValue /= 1000000;
+                        }
+                        else
+                        {
+                            currentValue = (currentValue - 2048)/2048.0f;
+                            currentValue *= 2.5f*23;
+
+                            currentValue /= 10; // shunt
+
+                            currentValue /= Gain; // gain
+
+                            currentValue -= volt/15220.588235294117647058823529412f;
+                            currentValue /= 2;
+
+                            if (Gain == 1000)
+                                currentValue -= 0.000149f;
+                            if (Gain == 10)
+                                currentValue -= 0.0013f;
                         }
 
-                        if (bigBf.Count >= 1024)
+                        if (currentValue > 0) wasTriggered = true;
+                        peak = Math.Max(currentValue,peak);
+                        f.Store((Sample - 1)*1.0f/(acqSamples - 1)*0.035f, new float[1] {(float) currentValue});
+
+                        if (Sample >= acqSamples)
                         {
-                            var b = bigBf.ToArray();
-                            int k = 0;
 
-                            while (k < 512)
+                            f.TriggerTime = 0.035f/2;
+                            Sample = 0;
+                            if (WaveformDone != null)
                             {
-                                var t = b[k * 2];
-                                b[k * 2] = b[k * 2 + 1];
-                                b[k * 2 + 1] = t;
-
-
-                                var d = BitConverter.ToInt16(b, k * 2);
-                                rawSample.Add(d);
-
-
-                                k++;
+                                WaveformDone(f, new EventArgs());
+                                //Debug.WriteLine(peak);
                             }
-
-                            bigBf.RemoveRange(0, 1024);
-
-                            var maxInt = 65535.0;
-                            int fftSize = 2048;
-
-                            if (rawSample.Count < fftSize) continue;
-
-                            int acqSamples = 28 + 1;
-                            acqSamples = 15;
-                            var oversample = 1;
-                            var samplesPerSecond = 12288;
-                            wfms = samplesPerSecond/acqSamples/oversample;
-                            for (int i = 0; i < rawSample.Count; i += oversample)
-                            {
-                                Sample++;
-
-                                int d = 0;
-                                for (int j = i; j < i + oversample; j++)
-                                    d += rawSample[j];
-
-                                var volt = 3.3;
-
-                                var currentValue = d * 1.0 / oversample;
-                                currentValue = currentValue / 32768.0 / 1 / 1.5 * 1.2 * 23;
-                                currentValue /= 10; // shunt
-
-                                currentValue /= Gain; // gain
-
-                                currentValue -= volt / 15220.588235294117647058823529412;
-
-                                currentValue *= 1000000;
-                                if (Gain == 10)
-                                    currentValue -= 148.3;
-                                if (Gain == 1)
-                                    currentValue -= 1300;
-                                if (Gain == 1000)
-                                    currentValue -= 5.7;
-                                if (Gain == 100)
-                                    currentValue -= 10.64 + 8.8;
-
-                                currentValue /= 1.02;
-                                currentValue /= 1000000;
-
-                                f.Store((Sample-1) * 1.0f / (acqSamples-1) * 0.035f, new float[1] { (float)currentValue });
-
-                                if (Sample >= acqSamples)
-                                {
-
-                                    f.TriggerTime = 0.035f/2;
-                                    Sample = 0;
-
-                                    if (WaveformDone != null)
-                                        WaveformDone(f, new EventArgs());
-
-                                    f = new Waveform(1, acqSamples);
-                                }
-                            }
-                            rawSample.RemoveRange(0, fftSize);
+                            peak = 0.0f;
+                            wasTriggered = false;
+                            f = new Waveform(1, acqSamples);
                         }
-
                     }
                 }
-                catch (Exception ex)
-                {
-                    //
-                }
-                //Thread.Sleep(1);
             }
 
-            _udp.Close();
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
@@ -10,6 +11,7 @@ using System.Drawing.Imaging;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using MS.Internal.Xml.XPath;
@@ -19,7 +21,7 @@ namespace PhosphorDisplay
     public partial class ucPhosphorDisplay : UserControl
     {
         private int horizontalDivisions = 7;
-        private int verticalDivisions = 5;
+        private int verticalDivisions = 7;
 
         public int[][] channelColors = new int[][]
                                            {
@@ -35,10 +37,11 @@ namespace PhosphorDisplay
         public int channels = 2;
 
         private float horizontalScale = 0.0025f;
-        private float[] verticalScale = new float[] {0.25f, 0.05f, 0.5f};
-        private float[] verticalOffset = new float[] {0, -3, 0f};
+        private float[] verticalScale = new float[] {2.0f/1000000, 1.00f, 0.5f};
+        private float[] verticalOffset = new float[] {0, 0, 0f};
 
-        private List<Waveform> waveforms = new List<Waveform>();
+        private ConcurrentQueue<Waveform> waveforms = new ConcurrentQueue<Waveform>();
+        private Mutex waveformsMutex = new Mutex();
 
         private Pen gridPen = new Pen(Color.DimGray, 1.0f);
         private Pen gridCenterPen = new Pen(Color.LightGray, 1.0f);
@@ -61,6 +64,7 @@ namespace PhosphorDisplay
 
         protected override void OnPaint(PaintEventArgs e)
         {
+            if (waveforms.Count == 0) return;
             base.OnPaint(e);
 
             Stopwatch sw = new Stopwatch();
@@ -100,13 +104,24 @@ namespace PhosphorDisplay
             var graphWidth = w - offsetHorizontalDivision*2;
             var graphHeight = h - offsetVerticalDivision*2;
 
-            if (waveforms.Count == 0) return;
             if (overhead < 0)
                 overhead = sw.ElapsedMilliseconds;
             else overhead = overhead/2.0f + sw.ElapsedMilliseconds/2.0f;
 
-            var myWaveforms = new List<Waveform>(waveforms);
-            waveforms.Clear();
+            List<Waveform> myWaveforms = new List<Waveform>();
+            lock (waveformsMutex)
+            {
+//                myWaveforms = new List<Waveform>(waveforms);
+
+                Waveform f = default(Waveform);
+                while(waveforms.TryDequeue(out f))
+                    myWaveforms.Add(f);
+
+
+                //if (myWaveforms.Count >= 500)
+                //    myWaveforms.RemoveRange(0, myWaveforms.Count - 501);
+            }
+
             var compressionRatio = 1;
 
             try
@@ -127,6 +142,7 @@ namespace PhosphorDisplay
                         arr[x] = new int[h];
                     intensity[ch] = arr;
                 }
+
                 foreach (var wave in myWaveforms)
                 {
                     // Process may interpolate the waveform if not enough samples are available.
@@ -139,7 +155,7 @@ namespace PhosphorDisplay
                     // It's a compromise between detail & accuracy. Higher resolution = better accuracy, at all times.
                     // But also slower to draw.
                     compressionRatio = Math.Max(wave.Samples/w, compressionRatio);
-                    var i = 0;
+
                     for (var ch = 0; ch < channels; ch++)
                     {
 
@@ -165,9 +181,6 @@ namespace PhosphorDisplay
 
                             // Make a hit for this pixel.
                             intensity[ch][x][y]++;
-
-
-                            i++;
                         }
                     }
                 }
@@ -199,7 +212,7 @@ namespace PhosphorDisplay
                         // The accurateness and contrast of the intensity graded display can be changed here.
                         // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
                         // The offset will also determine how visible less frequent options are seen.
-                        var perc = (float) Math.Pow(i*1.0f/noOfPens, 0.45)*95.0f + 25f;
+                        var perc = (float) Math.Pow(i*1.0f/noOfPens, 0.5)*2*125.0f + 1f;
 
                         // Fix perc if <0% or >100% or "ERR"
                         if (perc >= 100) perc = 100;
@@ -258,6 +271,22 @@ namespace PhosphorDisplay
             }
 
             sw.Stop();
+            waveformsCount += myWaveforms.Count;
+            renderTime += (float) sw.ElapsedMilliseconds;
+
+            var dt = DateTime.Now.Subtract(lastWfmsMeasurement);
+            if(dt.TotalMilliseconds > 500 && waveformsCount > 10)
+            {
+                var wfms = waveformsCount/(dt.TotalMilliseconds/1000.0f);
+                lastMeasurement = wfms.ToString("0000.0 wfms") + " [" + renderTime + "/"+dt.TotalMilliseconds.ToString("000")+"ms] ["+Math.Round(myWaveforms[0].Samples*wfms)+"sps]";
+                lastMeasurementColor = renderTime >= dt.TotalMilliseconds - 10 ? Brushes.Red : 
+                    renderTime*1.2 >= dt.TotalMilliseconds ? Brushes.Orange : Brushes.White;
+                waveformsCount = 0;
+                lastWfmsMeasurement = DateTime.Now;
+                renderTime = 0;
+            }
+            e.Graphics.DrawString(lastMeasurement, new Font("Verdana", 7), lastMeasurementColor, 0, this.Height - 10);
+
             if (speed < 0)
                 speed = sw.ElapsedMilliseconds;
             else
@@ -265,13 +294,34 @@ namespace PhosphorDisplay
             measurements++;
         }
 
+        private Brush lastMeasurementColor = Brushes.White;
+        private string lastMeasurement = "N/A";
+        private DateTime lastWfmsMeasurement = DateTime.Now;
+        private int waveformsCount = 0;
+        private float renderTime = 0;
+
         public float speed;
         public float overhead;
         public int measurements;
 
+        public void AddRange(IEnumerable<Waveform> wf)
+        {
+            try
+            {
+                lock (waveformsMutex)
+                {
+                    foreach (var w in wf)
+                        waveforms.Enqueue(w);
+                }
+            }
+            catch
+            {
+            }
+        }
+
         public void Add(Waveform waveform)
         {
-            waveforms.Add(waveform);
+            waveforms.Enqueue(waveform);
         }
     }
 }

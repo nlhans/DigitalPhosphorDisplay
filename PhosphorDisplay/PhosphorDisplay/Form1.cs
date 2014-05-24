@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Timer = System.Windows.Forms.Timer;
@@ -14,17 +15,19 @@ namespace PhosphorDisplay
 {
     public partial class Form1 : Form
     {
-        private bool artificialData = true;
+        private bool artificialData = false;
         private ucPhosphorDisplay display;
         private Timer _mUpdateWaveforms = new Timer();
 
         private DataStream paDataStream;
 
         private int framesAcquired = 0;
+        private Mutex framesHistoryMutex = new Mutex();
         private List<Waveform> framesHistory = new List<Waveform>();
         public Form1()
         {
             InitializeComponent();
+
 
             if (!artificialData)
             {
@@ -39,7 +42,7 @@ namespace PhosphorDisplay
             this.FormClosing += Form1_FormClosing;
 
             _mUpdateWaveforms = new Timer();
-            _mUpdateWaveforms.Interval = 1;
+            _mUpdateWaveforms.Interval = 10;
             if(artificialData)
                 _mUpdateWaveforms.Tick += _mUpdateWaveforms_Tick_FakeData;
             else
@@ -65,8 +68,11 @@ namespace PhosphorDisplay
 
         void paDataStream_WaveformDone(object sender, EventArgs e)
         {
-            framesAcquired++;
-            framesHistory.Add((Waveform) sender);
+            lock (framesHistoryMutex)
+            {
+                framesAcquired++;
+                framesHistory.Add((Waveform) sender);
+            }
         }
 
         void _mUpdateWaveforms_Tick_FromDatastream(object sender, EventArgs e)
@@ -74,23 +80,15 @@ namespace PhosphorDisplay
             if (framesAcquired > 0)
             {
                 display.channels = 1;
-                // Add all frames to display
-                var framesToAdd = 0;
-                var throttledWfsPerFrame = (int) (paDataStream.wfms/20);
-                if (paDataStream.wfms < 30)
-                    framesToAdd = framesHistory.Count;
-                else if (framesHistory.Count > throttledWfsPerFrame*2)
-                    framesToAdd = throttledWfsPerFrame*2;
-                else
-                    framesToAdd = Math.Min(framesHistory.Count, (int)throttledWfsPerFrame);
-                for(int i =0; i < framesToAdd; i++)
-                    display.Add(framesHistory[i]);
 
+                // Add all frames to display
+                lock (framesHistoryMutex)
+                {
+                    display.AddRange(framesHistory);
+                    framesHistory.RemoveRange(0, framesHistory.Count/10);
+                }
                 display.Invalidate();
-                // Remove first half
-                while(framesHistory.Count>paDataStream.wfms/5)
-                    framesHistory.RemoveAt(0);
-                    //framesHistory.RemoveRange(0,framesHistory.Count/2);
+
                 framesAcquired = 0;
             }
         }
@@ -116,8 +114,10 @@ namespace PhosphorDisplay
 
             Stopwatch ws = new Stopwatch();
             ws.Start();
-            var sampleLength = 1920; // this.Width;
-            frames = 125*1920/sampleLength;
+            var sampleLength = this.Width;
+            sampleLength = 800;
+            //frames = 125*1920/sampleLength;
+            frames = 500;
             //if (frames > 500) frames = 500;
             var channels = 3;
 
@@ -131,9 +131,9 @@ namespace PhosphorDisplay
                 var modFunc = 1.0f; // +m * 0.05f / frames;
                 if (counter <= 0)
                 {
-                    counter = 124;
+                    counter = 25;
                     //counter = r.Next(1, 5000) ;
-                    modFunc = 0.5f;
+                    modFunc = 0.25f;
                 }
                 counter--;
 
@@ -142,6 +142,7 @@ namespace PhosphorDisplay
 
                     float ch1 = 0, ch2 = 0, ch3 = 0;
 
+                    //modFunc = (float)Math.Sin(i*2*Math.PI/2048);
                     ch1 = (float) (modFunc*Math.Sin(i*2*Math.PI/sampleLength*2));
                     ch3 = r.Next(-5000, 5000) * 1.0f / r.Next(60000, 2500000);
                     ch1 += ch3;
