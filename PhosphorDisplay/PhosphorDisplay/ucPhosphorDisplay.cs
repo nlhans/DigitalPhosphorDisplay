@@ -20,7 +20,7 @@ namespace PhosphorDisplay
 {
     public partial class ucPhosphorDisplay : UserControl
     {
-        private int horizontalDivisions = 7;
+        private int horizontalDivisions = 5;
         private int verticalDivisions = 7;
 
         public int[][] channelColors = new int[][]
@@ -38,9 +38,9 @@ namespace PhosphorDisplay
 
         public bool DotsOnly { get; private set; }
         
-        private float horizontalScale = 0.0025f;
-        private float[] verticalScale = new float[] {100000.0f/1000000, 0.200f, 0.5f};
-        private float[] verticalOffset = new float[] {0, 0, 0f};
+        public float horizontalScale = 1;
+        public float[] verticalScale = new float[] { 0.2f, 1.0f, 1.0f };
+        public float[] verticalOffset = new float[] { 0, 0, 0f };
 
         private ConcurrentQueue<Waveform> waveforms = new ConcurrentQueue<Waveform>();
         private Mutex waveformsMutex = new Mutex();
