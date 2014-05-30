@@ -15,7 +15,7 @@ namespace PhosphorDisplay
 {
     public partial class Form1 : Form
     {
-        private bool artificialData = false;
+        private bool artificialData = true;
         private ucPhosphorDisplay display;
         private Timer _mUpdateWaveforms = new Timer();
 
@@ -42,7 +42,7 @@ namespace PhosphorDisplay
             this.FormClosing += Form1_FormClosing;
 
             _mUpdateWaveforms = new Timer();
-            _mUpdateWaveforms.Interval = 10;
+            _mUpdateWaveforms.Interval = 1;
             if(artificialData)
                 _mUpdateWaveforms.Tick += _mUpdateWaveforms_Tick_FakeData;
             else
@@ -116,11 +116,11 @@ namespace PhosphorDisplay
             Stopwatch ws = new Stopwatch();
             ws.Start();
             var sampleLength = this.Width;
-            sampleLength = 800;
-            //frames = 125*1920/sampleLength;
-            frames = 500;
-            //if (frames > 500) frames = 500;
-            var channels = 3;
+            sampleLength = 300;
+
+            frames = 25;
+
+            var channels = 1;
 
             Waveform f = default(Waveform);
             var r = new Random();
@@ -140,16 +140,7 @@ namespace PhosphorDisplay
 
                 for (int i = 0; i < sampleLength; i++)
                 {
-
-                    float ch1 = 0, ch2 = 0, ch3 = 0;
-
-                    //modFunc = (float)Math.Sin(i*2*Math.PI/2048);
-                    ch1 = (float) (modFunc*Math.Sin(i*2*Math.PI/sampleLength*2));
-                    ch3 = r.Next(-5000, 5000) * 1.0f / r.Next(60000, 2500000);
-                    ch1 += ch3;
-                    ch2 = -ch1 - r.Next(3,10)*ch3;
-
-                    var ch = new[] {ch1, ch2, ch3};
+                    var ch = new[] {(float) (modFunc*Math.Sin(i*2*Math.PI/sampleLength*2)), 0, 0};
                     var time = i*0.05f/sampleLength - 0.05f/2; // 70ms
 
                     f.Store(time, ch);
@@ -163,6 +154,11 @@ namespace PhosphorDisplay
             display.channels = channels;
             display.Invalidate();
             ws.Stop();
+        }
+
+        private void startToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }

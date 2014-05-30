@@ -37,9 +37,9 @@ namespace PhosphorDisplay
         public int channels = 2;
 
         public bool DotsOnly { get; private set; }
-
+        
         private float horizontalScale = 0.0025f;
-        private float[] verticalScale = new float[] {2.0f/1000000, 1.00f, 0.5f};
+        private float[] verticalScale = new float[] {100000.0f/1000000, 0.200f, 0.5f};
         private float[] verticalOffset = new float[] {0, 0, 0f};
 
         private ConcurrentQueue<Waveform> waveforms = new ConcurrentQueue<Waveform>();
@@ -189,8 +189,8 @@ namespace PhosphorDisplay
 
                             if (y < 0)
                                 y = 0;
-                            if (y >= graphHeight)
-                                y = graphHeight;
+                            if (y > graphHeight)
+                                y = graphHeight - 1;
 
                             // Make a hit for this pixel.
                             if (lastX >= 0 && !DotsOnly)
@@ -211,7 +211,7 @@ namespace PhosphorDisplay
                                     {
                                         for (var xInterpolated = 0; xInterpolated < -dx; xInterpolated++)
                                         {
-                                            var yInterpolated = y + dy * xInterpolated / dx;
+                                            var yInterpolated = y + dy*xInterpolated/dx;
                                             intensity[ch][x - xInterpolated][yInterpolated]++;
                                         }
                                     }
@@ -222,18 +222,31 @@ namespace PhosphorDisplay
                                     {
                                         for (var yInterpolated = 0; yInterpolated < dy; yInterpolated++)
                                         {
-                                            var xInterpolated = lastX + dx*yInterpolated/dy;
-                                            intensity[ch][xInterpolated][y - yInterpolated]++;
+                                                var xInterpolated = lastX+ dx*yInterpolated/dy;
+                                            try
+                                            {
+                                                intensity[ch][xInterpolated][lastY +  yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
                                         }
                                     }
                                     else
                                     {
-                                        for (var yInterpolated = 0; yInterpolated > -dy; yInterpolated++)
+                                        for (var yInterpolated = 0; yInterpolated < -dy; yInterpolated++)
                                         {
-                                            var xInterpolated = x - dx*yInterpolated/dy;
-                                            intensity[ch][xInterpolated][y - yInterpolated]++;
+                                            var xInterpolated = lastX + dx * yInterpolated / -dy;
+                                            try
+                                            {
+                                            intensity[ch][xInterpolated][lastY - yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
                                         }
                                     }
+
                                 }
 
                                 if (lastX != x) sameX = 2;
@@ -276,7 +289,7 @@ namespace PhosphorDisplay
                         // The accurateness and contrast of the intensity graded display can be changed here.
                         // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
                         // The offset will also determine how visible less frequent options are seen.
-                        var perc = (float) Math.Pow(i*1.0f/noOfPens, 0.5)*100.0f + 1f;
+                        var perc = (float)Math.Pow(i * 1.0f / compressionRatio / noOfPens, 0.5) * 2 * 100.0f + 15f;
 
                         // Fix perc if <0% or >100% or "ERR"
                         if (perc >= 100) perc = 100;

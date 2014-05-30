@@ -19,7 +19,7 @@ namespace PhosphorDisplay
 
         public double MaximumAmplitude { get { return 1300000.0 / Gain; } }
         public int Sample;
-        public int Gain = 1000;
+        public int Gain = 10;
 
         public DateTime StartTime;
 
@@ -47,7 +47,7 @@ namespace PhosphorDisplay
 
                 // make connection
 
-                IPEndPoint ipep = new IPEndPoint(IPAddress.Any, 1234);
+                IPEndPoint ipep = new IPEndPoint(IPAddress.Any, 3903);
                 IPAddress ip = IPAddress.Parse("224.5.6.7");
 
                 _udp = new UdpClient();
@@ -86,7 +86,7 @@ namespace PhosphorDisplay
             try
             {
                 if (_udp == null) return;
-                var any = (IPEndPoint) new IPEndPoint(IPAddress.Any, 1234);
+                var any = (IPEndPoint) new IPEndPoint(IPAddress.Any, 3903);
                 var read = _udp.EndReceive(iar, ref any);
 
                 lock (buffer)
@@ -129,33 +129,79 @@ namespace PhosphorDisplay
             }
         }
 
+        public void TxCommand(PaCommand cmd, byte[] payload)
+        {
+            var ep = new IPEndPoint(IPAddress.Parse("192.168.1.198"), 3903);
+            var u = new UdpClient();
+            var ddd = new byte[18+payload.Length];
+            ddd[2] = (byte) (18+payload.Length);
+
+            ddd[4] = (byte)((ushort)cmd & 0xFF);
+            ddd[5] = (byte)((ushort)cmd >> 8);
+            if(payload.Length>0)
+            Array.Copy(payload, 0, ddd, 18, payload.Length);
+
+            u.Send(ddd, ddd.Length, ep);
+            
+        }
+
         private void _fListener()
         {
 
-            int oversample = 1, acqSamples = 512;
+            int acqSamples = 512;
 
             int samplesPerSecond = 0;
             int sampleCounter = 0;
             DateTime lastSamplePerSecondMeasurement = DateTime.Now;
+            TxCommand(PaCommand.SET_STREAM_STOP, new byte[0]);
+            Thread.Sleep(20);
+            var settings = new byte[12 + 16];
+            settings[0] = 0;
+            settings[1] = 0;
+            settings[2] = 0;
+            settings[3] = 0;
+
+            settings[4] = 1; // mode 0 
+            settings[5] = 0;
+            
+            settings[6] = 32;
+            settings[7] = 0;//256 depth
+            
+            settings[8] = 0;
+            settings[9] = 0;
+            settings[10] = 0;
+            settings[11] = 0;
+
+            settings[12 + 2] = 2; // gain
+            settings[12 + 4] = 0; // acq speed
+
+            TxCommand(PaCommand.SET_STREAM_SETTINGS, settings);
+            Thread.Sleep(20);
+            TxCommand(PaCommand.SET_STREAM_START, new byte[0]);
 
             Waveform f = new Waveform(1, 20480);
 
+            if (settings[12 + 2] == 0) Gain = 1;
+            if (settings[12 + 2] == 1) Gain = 10;
+            if (settings[12 + 2] == 2) Gain = 100;
+            if (settings[12 + 2] == 3) Gain = 1000;
+
+            int samplesInThisFrame = 0;
             var wasTriggered = false;
             byte[] b = new byte[0];
             while (Listening)
             {
-                Thread.Sleep(1);
 
+                Thread.Sleep(1);
+                
                 while (bufferWaiting > 0)
                 {
-                    acqSamples = 1920*4;
-                    oversample = 1;
+                    acqSamples = 400;
 
                     var dt = DateTime.Now.Subtract(lastSamplePerSecondMeasurement);
-                    if (dt.TotalMilliseconds >= 500)
+                    if (dt.TotalMilliseconds >= 5000)
                     {
-                        sampleCounter *= oversample;
-                        Debug.WriteLine((sampleCounter / (dt.TotalMilliseconds / 1000)) + "sps / " + (packets * 1070 * 8 * 2 / 1000000.0 + "mbit") + " / " + buffer.Count + " residual");
+                        Debug.WriteLine((sampleCounter / (dt.TotalMilliseconds / 1000)) + "sps / " + (packets * 1070 * 8 * 2 / 1000000.0 + "mbit") + " / " + buffer.Count + " residual / " + samplesInThisFrame);
                         packets = 0;
                         lastSamplePerSecondMeasurement = DateTime.Now;
                         samplesPerSecond = sampleCounter;
@@ -176,36 +222,31 @@ namespace PhosphorDisplay
                     }
                     if (b == null) continue;
 
-                    int k = 2;
-                    var rawSample = new short[512];
-
-                    while (k < 514)
+                    samplesInThisFrame = (b.Length - 24)/2;
+                    var rawSample = new short[samplesInThisFrame];
+                    int k = 0;
+                    while (k < samplesInThisFrame)
                     {
-                        var t = b[k*2];
-                        b[k*2] = b[k*2 + 1];
-                        b[k*2 + 1] = t;
+                        //var t = b[24+k*2];
+                        //b[24 + k * 2] = b[24 + k * 2 + 1];
+                        //b[24 + k * 2 + 1] = t;
 
-                        var d = BitConverter.ToInt16(b, k*2);
-                        rawSample[k-2]=d;
+                        var d = BitConverter.ToInt16(b, 24 + k * 2);
+                        rawSample[k]=d;
 
                         k++;
                     }
 
-                    var peak = 0.0f;
-                    for (int i = 0; i < 512; i += oversample)
+                    for (int i = 0; i < samplesInThisFrame; i ++)
                     {
-                        Sample++;
                         sampleCounter++;
 
                         int d = rawSample[i];
-                        if (oversample>=2)
-                        for (int j = i+1; j < i + oversample; j++)
-                            d += rawSample[j];
 
                         var volt = 3.3f;
 
-                        var currentValue = d*1.0f/oversample;
-                        if (true)
+                        var currentValue = d*1.0f;
+                        if (settings[4] != 0)
                         {
                             currentValue = currentValue/32768.0f/1/1.5f*1.2f*23;
                             currentValue /= 10; // shunt
@@ -220,7 +261,7 @@ namespace PhosphorDisplay
                             if (Gain == 1)
                                 currentValue -= 1300;
                             if (Gain == 1000)
-                                currentValue -= 5.7f;
+                                currentValue -= 4.8f;
                             if (Gain == 100)
                                 currentValue -= 10.64f + 8.8f;
 
@@ -245,23 +286,25 @@ namespace PhosphorDisplay
                                 currentValue -= 0.0013f;
                         }
 
-                        if (currentValue > 0) wasTriggered = true;
-                        peak = Math.Max(currentValue,peak);
-                        f.Store((Sample - 1)*1.0f/(acqSamples - 1)*0.035f, new float[1] {(float) currentValue});
+                        if (currentValue < 8.0f / 1000) wasTriggered = true;
 
+
+                        if (wasTriggered)
+                        {
+                            Sample++;
+                            f.Store((Sample - 1)*1.0f/(acqSamples - 1)*0.035f, new float[1] {(float) currentValue});
+                        }
                         if (Sample >= acqSamples)
                         {
 
                             f.TriggerTime = 0.035f/2;
                             Sample = 0;
-                            if (WaveformDone != null)
+                            if (WaveformDone != null && wasTriggered)
                             {
                                 WaveformDone(f, new EventArgs());
-                                //Debug.WriteLine(peak);
                             }
-                            peak = 0.0f;
-                            wasTriggered = false;
                             f = new Waveform(1, acqSamples);
+                            wasTriggered = true;
                         }
                     }
                 }
