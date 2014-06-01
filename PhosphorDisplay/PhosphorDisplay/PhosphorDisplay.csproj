@@ -46,7 +46,6 @@
   <ItemGroup>
     <Compile Include="Acquisition\AcquisitionEngine.cs" />
     <Compile Include="Acquisition\MMTimer.cs" />
-    <Compile Include="DataStream.cs" />
     <Compile Include="Data\ArtificialStream.cs" />
     <Compile Include="Data\DataPacket.cs" />
     <Compile Include="Data\DataType.cs" />

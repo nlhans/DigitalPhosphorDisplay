@@ -24,11 +24,17 @@ namespace PhosphorDisplay
         {
             InitializeComponent();
 
-            acqEngine = new AcquisitionEngine(new ArtificialStream());
+            acqEngine = new AcquisitionEngine(new NetStream());
 
             display = new ucPhosphorDisplay();
             display.channels = 1;
+
+            if (acqEngine.Source is ArtificialStream)
             display.horizontalScale = 0.1f/(acqEngine.Source as ArtificialStream).freq;
+            else
+                display.horizontalScale = 0.04f / 1000;
+            display.verticalScale = new float[3] { 1.0f/1000, 1, 1};
+
             display.Dock = DockStyle.Fill;
             Controls.Add(display);
 
