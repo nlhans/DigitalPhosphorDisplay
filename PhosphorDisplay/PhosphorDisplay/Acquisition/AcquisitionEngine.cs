@@ -24,7 +24,7 @@ namespace PhosphorDisplay.Acquisition
             if (source is ArtificialStream)
                 AcquisitionLength = (source as ArtificialStream).samplesPerSecond / (source as ArtificialStream).freq;
             else
-                AcquisitionLength = 400;
+                AcquisitionLength = 300;
             Pretrigger = AcquisitionLength/2;
 
             Source = source;

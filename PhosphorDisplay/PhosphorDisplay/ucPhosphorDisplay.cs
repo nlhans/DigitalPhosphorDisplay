@@ -289,7 +289,7 @@ namespace PhosphorDisplay
                         // The accurateness and contrast of the intensity graded display can be changed here.
                         // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
                         // The offset will also determine how visible less frequent options are seen.
-                        var perc = (float)Math.Pow(i * 1.0f / compressionRatio / noOfPens, 0.5) * 2 * 100.0f + 15f;
+                        var perc = (float)Math.Pow(i * 1.0f / compressionRatio / noOfPens, 0.5) * 2 * 100.0f + 10f;
 
                         // Fix perc if <0% or >100% or "ERR"
                         if (perc >= 100) perc = 100;

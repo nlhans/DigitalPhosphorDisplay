@@ -33,7 +33,7 @@ namespace PhosphorDisplay
             display.horizontalScale = 0.1f/(acqEngine.Source as ArtificialStream).freq;
             else
                 display.horizontalScale = 0.04f / 1000;
-            display.verticalScale = new float[3] { 1.0f/1000, 1, 1};
+            display.verticalScale = new float[3] { 20000.0f/1000000, 1, 1};
 
             display.Dock = DockStyle.Fill;
             Controls.Add(display);
@@ -49,6 +49,7 @@ namespace PhosphorDisplay
 
                                   display.Invalidate();
                               }
+                              t.Interval = 1000;
                           };
             t.Interval = 1;
             t.Start();

@@ -61,8 +61,6 @@ namespace PhosphorDisplay.Data
             _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, multOpt);
             _udpListening = true;
             _udp.BeginReceive(udpReadMore, null);
-
-            Configure(null);
         }
 
         public void Disconnect()
@@ -76,6 +74,9 @@ namespace PhosphorDisplay.Data
 
         public void Configure(object configuration)
         {
+            Stop();
+            Thread.Sleep(25);
+
             var settings = new byte[12 + 16];
             settings[0] = 0;
             settings[1] = 0;
@@ -93,7 +94,7 @@ namespace PhosphorDisplay.Data
             settings[10] = 0;
             settings[11] = 0;
 
-            settings[12 + 2] = 1; // gain
+            settings[12 + 2] = 0; // gain
             settings[12 + 4] = 0; // acq speed
 
             SendCommand(PaCommand.SET_STREAM_SETTINGS, settings);
@@ -104,6 +105,9 @@ namespace PhosphorDisplay.Data
             // Give the power analyzer 50ms to recover
             if (DateTime.Now.Subtract(StreamStoppedAt).TotalMilliseconds<50)
                 Thread.Sleep((int)DateTime.Now.Subtract(StreamStoppedAt).TotalMilliseconds);
+
+            Configure(null);
+            Thread.Sleep(25);
 
             SendCommand(PaCommand.SET_STREAM_START, new byte[0]);
         }
@@ -182,16 +186,19 @@ namespace PhosphorDisplay.Data
 
         }
 
+        private int err = 0;
+
         public void ProcessSamples(byte[] packet)
         {
-            float timeInterval = 1.0f/1000000;
+            float timeInterval = 1.0f/800000;
             float[] samples = new float[packet.Length/2];
-
+            
             for (int k = 0; k < packet.Length / 2; k++)
             {
-                float currentValue = BitConverter.ToInt16(packet, k*2)/1.0f;
-                float Gain = 10;
-                float volt = 3.3f;
+                short sh = BitConverter.ToInt16(packet, k*2);
+                float currentValue = sh/1.0f;
+                float Gain = 1;
+                float volt = 3.30856189727783203125f;
 
                 if (true)
                 {
@@ -232,7 +239,10 @@ namespace PhosphorDisplay.Data
                     if (Gain == 10)
                         currentValue -= 0.0013f;
                 }
-
+                if (currentValue < -20.0f/1000 || (currentValue > 20.0f / 1000 && currentValue < 100.0f/1000))
+                {
+                    err++;
+                }
                 samples[k] = currentValue;
             }
 
