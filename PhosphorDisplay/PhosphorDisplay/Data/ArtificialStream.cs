@@ -17,7 +17,9 @@ namespace PhosphorDisplay.Data
 
         #region Implementation of IDataSource
 
+        public float SampleRate { get; private set; }
         public event DataSourceEvent Data;
+        public event HighresEvent HighresVoltage;
         public event EventHandler Connected;
         public event EventHandler Disconnected;
         public void Connect(object target)

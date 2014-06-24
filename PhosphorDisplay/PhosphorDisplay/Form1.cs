@@ -17,58 +17,139 @@ namespace PhosphorDisplay
 {
     public partial class Form1 : Form
     {
-        private bool hadStuffAdded = true;
-        public ucPhosphorDisplay display;
+        private bool triggerOk = true;
+        private bool overviewRefresh = false;
+
+        public ucPhosphorDisplay displayTrig;
+        public ucPhosphorDisplay displayOverview;
+        public ucRmsMeter dmm;
+
         public AcquisitionEngine acqEngine;
+
+
         public Form1()
         {
             InitializeComponent();
 
             acqEngine = new AcquisitionEngine(new NetStream());
 
-            display = new ucPhosphorDisplay();
-            display.channels = 1;
+            acqEngine.AcquisitionTime = 100.0f/1000;
 
-            if (acqEngine.Source is ArtificialStream)
-            display.horizontalScale = 0.1f/(acqEngine.Source as ArtificialStream).freq;
-            else
-                display.horizontalScale = 0.04f / 1000;
-            display.verticalScale = new float[3] { 20000.0f/1000000, 1, 1};
+            // Zoom waveform
+            displayTrig = new ucPhosphorDisplay();
+            displayTrig.channels = 1;
 
-            display.Dock = DockStyle.Fill;
-            Controls.Add(display);
+            displayTrig.horizontalScale = (float) (acqEngine.AcquisitionTime/displayTrig.horizontalDivisions/2);
+            displayTrig.verticalScale = new float[3] { 25f/1000000, 1, 1};
 
-            acqEngine.Waveform += acqEngine_Waveform;
+            Controls.Add(displayTrig);
+            
+            // Triggered waveform
+            displayOverview = new ucPhosphorDisplay();
+            displayOverview.channels = 1;
+            displayOverview.verticalScale= displayTrig.verticalScale;
+            displayOverview.horizontalScale = 1.0f;
+
+            Controls.Add(displayOverview);
+
+            // Measurement "DMM"
+            dmm = new ucRmsMeter();
+            Controls.Add(dmm);
+
+            this.Layout += Form1_Layout;
+
+            acqEngine.OverviewWaveform += acqEngine_OverviewWaveform;
+            acqEngine.TriggeredWaveform += acqEngine_Waveform;
 
             var t = new Timer();
             t.Tick += (sender, args) =>
                           {
-                              if (hadStuffAdded)
+                              if (triggerOk)
                               {
-                                  hadStuffAdded = false;
+                                  triggerOk = false;
 
-                                  display.Invalidate();
+                                  displayTrig.Invalidate();
                               }
-                              t.Interval = 1000;
+                              if(overviewRefresh)
+                              {
+                                  overviewRefresh = false;
+
+                                  dmm.Invalidate();
+                                  displayOverview.Invalidate();
+                              }
                           };
-            t.Interval = 1;
+            
+            t.Interval = 40; // 25 fps
             t.Start();
 
             this.SizeChanged += Form1_SizeChanged;
         }
 
+        void Form1_Layout(object sender, LayoutEventArgs e)
+        {
+            var h = this.Height;
+            var h1 = (int)(h*0.3);
+            var h2 = (int) (h*0.7);
+            dmm.Size = new Size(150, h1);
+
+            displayOverview.Size = new Size(this.Width-dmm.Width, h1);
+            displayTrig.Size = new Size(this.Width, h2);
+
+            displayOverview.Location = new Point(0, 0);
+            dmm.Location = new Point(displayOverview.Width, 0);
+            displayTrig.Location = new Point(0, h1);
+        }
+
+        void acqEngine_OverviewWaveform(Waveform f)
+        {
+            displayOverview.horizontalScale = f.Horizontal[f.Samples - 1]/10;
+            displayOverview.horizontalOffset = displayOverview.horizontalScale * displayOverview.horizontalDivisions;
+            
+            displayOverview.Add(f);
+
+            // Update dmm:
+            float currentMin = float.MaxValue;
+            float currentMax = float.MinValue;
+            float currentRms = 0;
+            float currentMean = 0;
+
+            for(int k = 0; k < f.Samples;k ++)
+            {
+                var c = f.Data[0][k];
+                currentMin = Math.Min(currentMin, c);
+                currentMax = Math.Max(currentMax, c);
+
+                currentRms += c*c;
+                currentMean += c;
+            }
+
+            currentMean /= f.Samples;
+
+            currentRms *= f.Horizontal[1] - f.Horizontal[0];
+            currentRms /= f.Horizontal[f.Samples - 1];
+            currentRms = (float)Math.Sqrt(currentRms);
+
+            dmm.meanCurrent = currentMean;
+            dmm.rmsCurrent = currentRms;
+            dmm.minCurrent = currentMin;
+            dmm.maxCurrent = currentMax;
+
+            dmm.sixDigitVoltage = acqEngine.LastVoltageMeasurent;
+
+            overviewRefresh = true;
+        }
+
         void acqEngine_Waveform(Waveform f)
         {
-            //Debug.WriteLine("waveform");
-            display.Add(f);
-            hadStuffAdded = true;
+            displayTrig.Add(f);
+            triggerOk = true;
         }
 
 
 
         void Form1_SizeChanged(object sender, EventArgs e)
         {
-            display.Invalidate();
+            displayTrig.Invalidate();
         }
     }
 }

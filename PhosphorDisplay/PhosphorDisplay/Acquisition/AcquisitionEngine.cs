@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,7 +12,8 @@ namespace PhosphorDisplay.Acquisition
     {
         public delegate void AcquiredWaveform(Waveform f);
 
-        public event AcquiredWaveform Waveform;
+        public event AcquiredWaveform TriggeredWaveform;
+        public event AcquiredWaveform OverviewWaveform;
 
         public IDataSource Source { get; private set; }
         public ITrigger Trigger { get; private set; }
@@ -19,38 +21,82 @@ namespace PhosphorDisplay.Acquisition
         public int AcquisitionLength { get; private set; }
         public int Pretrigger { get; private set; }
 
+        public float LastVoltageMeasurent { get; private set; }
+
+        public double AcquisitionTime { get; set; }
+
         public AcquisitionEngine(IDataSource source)
         {
-            if (source is ArtificialStream)
-                AcquisitionLength = (source as ArtificialStream).samplesPerSecond / (source as ArtificialStream).freq;
-            else
-                AcquisitionLength = 300;
-            Pretrigger = AcquisitionLength/2;
+            samplesOverflowSink = new List<float>();
+
+            overviewWfLastCapture = DateTime.Now;
+            overviewWf = new Waveform(1, 6000000);
+
+            Trigger = new Edge(); // TODO: Temporary trigger
 
             Source = source;
+            Source.Data += ProcessWaveform;
+            Source.Data += Source_Data;
+            Source.HighresVoltage += Source_HighresVoltage;
+
             Source.Connect(null);
             Source.Start();
 
-            samplesOverflowSink = new List<float>();
-            
-            Trigger = new Edge(); // TODO: Temporary trigger
-
-            Source.Data += Source_Data;
         }
-        
-        private void FireWaveform(Waveform f)
+
+        void Source_HighresVoltage(float voltage)
         {
-            if (Waveform != null)
-                Waveform(f);
+            LastVoltageMeasurent = voltage;
+        }
+
+        // Processes for overall view,.
+        private Waveform overviewWf;
+        private float overviewTimestamp = 0;
+        private DateTime overviewWfLastCapture;
+        void Source_Data(DataPacket data)
+        {
+            // Store each sample.
+            foreach (var s in data.Samples)
+            {
+                overviewTimestamp += data.TimeInterval;
+                overviewWf.Store(overviewTimestamp, new float[1] { s });
+            }
+
+            if (DateTime.Now.Subtract(overviewWfLastCapture).TotalMilliseconds >= 1000/10)
+            {
+                if (OverviewWaveform != null)
+                    OverviewWaveform(overviewWf);
+
+                overviewWf = new Waveform(1, 6000000);
+                overviewTimestamp = 0.0f;
+                overviewWfLastCapture = DateTime.Now;
+
+            }
+        }
+
+        private void FireTriggeredWaveform(Waveform f)
+        {
+            if (TriggeredWaveform != null)
+                TriggeredWaveform(f);
         }
         private List<float> samplesOverflowSink; 
     
 
-        void Source_Data(DataPacket data)
+        void ProcessWaveform(DataPacket data)
         {
+            AcquisitionLength = 1+(int)(AcquisitionTime*Source.SampleRate);
+            if (AcquisitionLength < 15) AcquisitionLength = 15;
+
+            Pretrigger = AcquisitionLength / 2;
+
             lock (samplesOverflowSink)
             {
                 samplesOverflowSink.AddRange(data.Samples);
+
+                if (samplesOverflowSink.Count > Pretrigger*4)
+                {
+                    samplesOverflowSink.RemoveRange(0, samplesOverflowSink.Count - Pretrigger * 4);
+                }
 
                 var triggerInfo = new TriggerInfo(true, 0); // dummy
 
@@ -80,7 +126,7 @@ namespace PhosphorDisplay.Acquisition
                         waveform.Store(timestamp, new float[1] {s});
                     }
 
-                    FireWaveform(waveform);
+                    FireTriggeredWaveform(waveform);
 
                     samplesOverflowSink.RemoveRange(0, waveformStart+AcquisitionLength-1);
 

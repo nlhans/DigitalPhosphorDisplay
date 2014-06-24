@@ -20,8 +20,8 @@ namespace PhosphorDisplay
 {
     public partial class ucPhosphorDisplay : UserControl
     {
-        private int horizontalDivisions = 5;
-        private int verticalDivisions = 7;
+        public int horizontalDivisions = 5;
+        public int verticalDivisions = 5;
 
         public int[][] channelColors = new int[][]
                                            {
@@ -37,8 +37,10 @@ namespace PhosphorDisplay
         public int channels = 2;
 
         public bool DotsOnly { get; private set; }
-        
+
         public float horizontalScale = 1;
+        public float horizontalOffset = 0.0f;
+
         public float[] verticalScale = new float[] { 0.2f, 1.0f, 1.0f };
         public float[] verticalOffset = new float[] { 0, 0, 0f };
 
@@ -132,7 +134,7 @@ namespace PhosphorDisplay
             {
 
                 // Display all waveforms
-                // To do that, we map all waveforms to an display array
+                // To do that, we map all waveforms to an displayTrig array
 
                 // This array contains the X,Y intensity data per channel
                 // intensity[channel][x position][y position] = number of hits
@@ -154,7 +156,7 @@ namespace PhosphorDisplay
                     if (DotsOnly)
                         wave.Process(w);
 
-                    // The compression ratio is applicable when there are more samples to display than display width is available.
+                    // The compression ratio is applicable when there are more samples to displayTrig than displayTrig width is available.
                     // This will mean that it's possible more than 1 sample is displayed on the same X position.
                     // This can increase the number of hits on that specific pixel, and therefor an compression ratio is used.
                     // It's a compromise between detail & accuracy. Higher resolution = better accuracy, at all times.
@@ -174,7 +176,7 @@ namespace PhosphorDisplay
                             // Calculate X position on screen. Check in bounds.
                             var x =
                                 (int)
-                                Math.Round((waveTime/horizontalScale + horizontalDivisions)*
+                                Math.Round(((waveTime-horizontalOffset)/horizontalScale + horizontalDivisions)*
                                            pxPerHorizontalDivision);
 
                             if (x < 0)
@@ -251,7 +253,7 @@ namespace PhosphorDisplay
 
                                 if (lastX != x) sameX = 2;
                                 else sameX++;
-                                compressionRatio = Math.Max(sameX, compressionRatio);
+                                //compressionRatio = Math.Max(sameX, compressionRatio);
                             }
                             else
                                 intensity[ch][x][y]++;
@@ -261,6 +263,8 @@ namespace PhosphorDisplay
                         }
                     }
                 }
+
+                //compressionRatio = 1;
 
                 // Lock bits on map
                 // This is used for a much much faster setpixel performance. The bitmap is accesisable via a raw byte arrya, containing bit information.
@@ -286,10 +290,10 @@ namespace PhosphorDisplay
                     // Generate a set of color.
                     for (int i = 0; i < noOfPens; i++)
                     {
-                        // The accurateness and contrast of the intensity graded display can be changed here.
+                        // The accurateness and contrast of the intensity graded displayTrig can be changed here.
                         // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
                         // The offset will also determine how visible less frequent options are seen.
-                        var perc = (float)Math.Pow(i * 1.0f / compressionRatio / noOfPens, 0.5) * 2 * 100.0f + 10f;
+                        var perc = (float)Math.Pow(i * 1.0f / noOfPens/  compressionRatio, 0.5) * 2 * 300.0f + 10.0f;
 
                         // Fix perc if <0% or >100% or "ERR"
                         if (perc >= 100) perc = 100;
@@ -363,7 +367,7 @@ namespace PhosphorDisplay
                 lastWfmsMeasurement = DateTime.Now;
                 renderTime = 0;
             }
-            e.Graphics.DrawString(lastMeasurement, new Font("Verdana", 7), lastMeasurementColor, 0, this.Height - 10);
+            e.Graphics.DrawString(lastMeasurement, new Font("Verdana", 7), lastMeasurementColor, 0, 0);
 
             if (speed < 0)
                 speed = sw.ElapsedMilliseconds;

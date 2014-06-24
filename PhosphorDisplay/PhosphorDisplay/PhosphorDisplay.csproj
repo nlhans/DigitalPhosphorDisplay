@@ -69,6 +69,12 @@
     <Compile Include="ucPhosphorDisplay.Designer.cs">
       <DependentUpon>ucPhosphorDisplay.cs</DependentUpon>
     </Compile>
+    <Compile Include="ucRmsMeter.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ucRmsMeter.Designer.cs">
+      <DependentUpon>ucRmsMeter.cs</DependentUpon>
+    </Compile>
     <Compile Include="Waveform.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
@@ -84,6 +90,9 @@
     </Compile>
     <EmbeddedResource Include="ucPhosphorDisplay.resx">
       <DependentUpon>ucPhosphorDisplay.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ucRmsMeter.resx">
+      <DependentUpon>ucRmsMeter.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

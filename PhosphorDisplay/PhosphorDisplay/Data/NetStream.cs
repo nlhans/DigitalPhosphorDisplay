@@ -12,6 +12,10 @@ namespace PhosphorDisplay.Data
 {
     public class NetStream : IDataSource
     {
+        private float LastHighresVoltage=0.0f;
+        private bool AdcMcp = false;
+        private int Gain = 0;
+        
         private DateTime StreamStoppedAt = DateTime.Now;
 
         private UdpClient _udp;
@@ -24,11 +28,16 @@ namespace PhosphorDisplay.Data
 
         #region Implementation of IDataSource
 
+        public float SampleRate { get; private set; }
         public event DataSourceEvent Data;
+        public event HighresEvent HighresVoltage;
         public event EventHandler Connected;
         public event EventHandler Disconnected;
+
         public void Connect(object target)
         {
+            HighresVoltage += voltage => LastHighresVoltage = voltage;
+
             netProcesser = new Thread(processData);
             netProcesser.IsBackground = true;
             netProcesser.Priority = ThreadPriority.AboveNormal;
@@ -94,8 +103,16 @@ namespace PhosphorDisplay.Data
             settings[10] = 0;
             settings[11] = 0;
 
-            settings[12 + 2] = 0; // gain
-            settings[12 + 4] = 0; // acq speed
+            settings[12 + 2] = 3; // gain
+            settings[12 + 4] = 7; // acq speed
+
+            AdcMcp = settings[4] == 1;
+            Gain = (int)Math.Pow(10, settings[12 + 2]);
+
+            if (settings[4] == 1)
+                SampleRate = 262000 / (float)Math.Pow(2, settings[12 + 4]);
+            else
+                SampleRate = 4000000;
 
             SendCommand(PaCommand.SET_STREAM_SETTINGS, settings);
         }
@@ -110,6 +127,10 @@ namespace PhosphorDisplay.Data
             Thread.Sleep(25);
 
             SendCommand(PaCommand.SET_STREAM_START, new byte[0]);
+
+            // For testing purposes:
+            if (HighresVoltage != null)
+                HighresVoltage(3.30856189727783203125f);
         }
 
         public void Stop()
@@ -134,6 +155,7 @@ namespace PhosphorDisplay.Data
             SET_STREAM_STOP = 0x8022,
             SET_STREAM_RESTART = 0x8023,
             STREAM_DATA = 0x0030,
+            HIGHRES_DATA = 0x0031,
         }
         
         private void udpReadMore(IAsyncResult iar)
@@ -164,7 +186,7 @@ namespace PhosphorDisplay.Data
         public void processData()
         {
             byte[] packet;
-            while(netProcesser!= null && netProcesser.IsAlive)
+            while (netProcesser != null && netProcesser.IsAlive)
             {
                 while (bufferWaiting == 0) Thread.Sleep(1);
                 lock (buffer)
@@ -180,8 +202,25 @@ namespace PhosphorDisplay.Data
                 var payload = new byte[total];
                 Array.Copy(packet, 24, payload, 0, payload.Length);
 
-                // Process all of them
-                ProcessSamples(payload);
+                var header = new byte[24];
+                Array.Copy(packet, 0, header, 0, header.Length);
+
+                var pkgType = (PaCommand) header[2];
+
+                if (pkgType == PaCommand.STREAM_DATA)
+                {
+                    // Process all of them
+                    ProcessSamples(payload);
+                }
+                if (pkgType == PaCommand.HIGHRES_DATA)
+                {
+                    var voltInt = BitConverter.ToInt32(payload, 0);
+
+                    var voltFlt = voltInt*2.5f/0x1FFFFF*23;
+
+                    if (HighresVoltage != null)
+                        HighresVoltage(voltFlt);
+                }
             }
 
         }
@@ -190,24 +229,23 @@ namespace PhosphorDisplay.Data
 
         public void ProcessSamples(byte[] packet)
         {
-            float timeInterval = 1.0f/800000;
+            float timeInterval = 1.0f / SampleRate;
             float[] samples = new float[packet.Length/2];
             
             for (int k = 0; k < packet.Length / 2; k++)
             {
                 short sh = BitConverter.ToInt16(packet, k*2);
                 float currentValue = sh/1.0f;
-                float Gain = 1;
-                float volt = 3.30856189727783203125f;
-
-                if (true)
+                
+                if (AdcMcp)
                 {
                     currentValue = currentValue/32768.0f/1/1.5f*1.2f*23;
                     currentValue /= 10; // shunt
 
                     currentValue /= Gain; // gain
 
-                    currentValue -= volt/15220.588235294117647058823529412f;
+                    var voltageCorrection = LastHighresVoltage / 15220.588235294117647058823529412f;
+                    currentValue -=voltageCorrection;
 
                     currentValue *= 1000000;
                     if (Gain == 10)
@@ -215,11 +253,31 @@ namespace PhosphorDisplay.Data
                     if (Gain == 1)
                         currentValue -= 1300;
                     if (Gain == 1000)
-                        currentValue -= 4.8f;
-                    if (Gain == 100)
-                        currentValue -= 10.64f + 8.8f;
+                    {
+                        currentValue -= 3.6f;
 
-                    currentValue /= 1.02f;
+                        var adc = k%4;
+                        switch(adc)
+                        {
+                            case 0:
+                                currentValue -= 0.18f;
+                                break;
+                            case 1:
+                                currentValue -= 0.12f;
+                                break;
+                            case 2:
+                                currentValue += 0.37f;
+                                break;
+                            case 3:
+                                currentValue += 0.34f;
+                                break;
+                        }
+                    }
+                    if (Gain == 100)
+                    {
+                        currentValue -= 2.5f;
+                    }
+                    currentValue /= 1.03f;
                     currentValue /= 1000000;
                 }
                 else
@@ -231,7 +289,7 @@ namespace PhosphorDisplay.Data
 
                     currentValue /= Gain; // gain
 
-                    currentValue -= volt/15220.588235294117647058823529412f;
+                    currentValue -= LastHighresVoltage/15220.588235294117647058823529412f;
                     currentValue /= 2;
 
                     if (Gain == 1000)
