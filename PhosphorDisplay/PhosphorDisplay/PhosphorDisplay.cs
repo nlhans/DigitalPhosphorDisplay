@@ -15,11 +15,12 @@ using Timer = System.Windows.Forms.Timer;
 
 namespace PhosphorDisplay
 {
-    public partial class Form1 : Form
+    public partial class PhosphorDisplay : Form
     {
         private bool triggerOk = true;
         private bool overviewRefresh = false;
 
+        public ucScopeControls controls;
         public ucPhosphorDisplay displayTrig;
         public ucPhosphorDisplay displayOverview;
         public ucRmsMeter dmm;
@@ -27,20 +28,20 @@ namespace PhosphorDisplay
         public AcquisitionEngine acqEngine;
 
 
-        public Form1()
+        public PhosphorDisplay()
         {
             InitializeComponent();
 
             acqEngine = new AcquisitionEngine(new NetStream());
-
-            acqEngine.AcquisitionTime = 100.0f/1000;
+            acqEngine.AcquisitionTime = 0.15f/1000;
+            acqEngine.PretriggerTime = 0.0f/1000;
 
             // Zoom waveform
             displayTrig = new ucPhosphorDisplay();
             displayTrig.channels = 1;
 
             displayTrig.horizontalScale = (float) (acqEngine.AcquisitionTime/displayTrig.horizontalDivisions/2);
-            displayTrig.verticalScale = new float[3] { 25f/1000000, 1, 1};
+            displayTrig.verticalScale = new float[3] { 0.25f, 1, 1};
 
             Controls.Add(displayTrig);
             
@@ -49,12 +50,17 @@ namespace PhosphorDisplay
             displayOverview.channels = 1;
             displayOverview.verticalScale= displayTrig.verticalScale;
             displayOverview.horizontalScale = 1.0f;
+            displayOverview.lowContrast = true;
 
             Controls.Add(displayOverview);
 
             // Measurement "DMM"
             dmm = new ucRmsMeter();
             Controls.Add(dmm);
+
+            // Control panel
+            controls = new ucScopeControls(acqEngine, displayTrig, displayOverview);
+            Controls.Add(controls);
 
             this.Layout += Form1_Layout;
 
@@ -82,6 +88,11 @@ namespace PhosphorDisplay
             t.Interval = 40; // 25 fps
             t.Start();
 
+            acqEngine.Source.HighresVoltage += voltage =>
+                                                   {
+                                                       dmm.sixDigitVoltage = voltage;
+                                                       dmm.Invalidate();
+                                                   };
             this.SizeChanged += Form1_SizeChanged;
         }
 
@@ -90,14 +101,16 @@ namespace PhosphorDisplay
             var h = this.Height;
             var h1 = (int)(h*0.3);
             var h2 = (int) (h*0.7);
-            dmm.Size = new Size(150, h1);
+            dmm.Size = new Size(200, h1);
+            controls.Size = new Size(200, h2);
 
             displayOverview.Size = new Size(this.Width-dmm.Width, h1);
-            displayTrig.Size = new Size(this.Width, h2);
+            displayTrig.Size = new Size(this.Width - dmm.Width, h2);
 
             displayOverview.Location = new Point(0, 0);
             dmm.Location = new Point(displayOverview.Width, 0);
             displayTrig.Location = new Point(0, h1);
+            controls.Location = new Point(displayOverview.Width, h1);
         }
 
         void acqEngine_OverviewWaveform(Waveform f)

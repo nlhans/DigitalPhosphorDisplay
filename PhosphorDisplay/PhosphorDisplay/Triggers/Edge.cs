@@ -12,7 +12,7 @@ namespace PhosphorDisplay.Triggers
         {
             TriggerLevelL = 1.0f/1000;
             TriggerLevelH = 5.0f/1000;
-            HistoryEffect = 4;
+            HistoryEffect = 6;
 
             RisingEdge = false;
             FallingEdge = true;
@@ -30,15 +30,15 @@ namespace PhosphorDisplay.Triggers
         public string Name { get { return "Edge"; } }
         public TriggerInfo IsTriggered(IEnumerable<float> s, int start)
         {
-            TriggerLevelL = 0.55f / 1000000;
-            TriggerLevelH = 50.55f / 1000000;
+            TriggerLevelL = -5.5f / 1000;
+            TriggerLevelH = 5.5f / 1000;
 
             RisingEdge = true;
-            FallingEdge = true;
-            return new TriggerInfo(true, start+1);
+            FallingEdge = false;
+            //return new TriggerInfo(true, start+1);
 
             if (start > s.Count() - 1) return new TriggerInfo(false, -1);
-            var samples = s.Take(100000).ToArray();
+            var samples = s.Take(1000000).ToArray();
 
             float lastSample = samples[start];
 

@@ -1,6 +1,6 @@
 ﻿namespace PhosphorDisplay
 {
-    partial class Form1
+    partial class PhosphorDisplay
     {
         /// <summary>
         /// Required designer variable.
@@ -30,13 +30,13 @@
         {
             this.SuspendLayout();
             // 
-            // Form1
+            // PhosphorDisplay
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(784, 562);
-            this.Name = "Form1";
-            this.Text = "Form1";
+            this.Name = "PhosphorDisplay";
+            this.Text = "PhosphorDisplay";
             this.ResumeLayout(false);
 
         }

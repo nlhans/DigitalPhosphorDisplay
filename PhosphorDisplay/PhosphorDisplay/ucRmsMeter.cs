@@ -33,21 +33,6 @@ namespace PhosphorDisplay
             this.Invalidate();
         }
 
-        private string ToUnit(float v, string appendix)
-        {
-            if (Math.Abs(v) < 1.0/1000)
-            {
-                return ((v>=0)?" ":"") + (v * 1000000).ToString("000.00  ") + "µ" + appendix;
-            }
-            else if (Math.Abs(v) < 1.0)
-            {
-                return ((v >= 0) ? " " : "") + (v * 1000).ToString("000.0000") + "m" + appendix;
-            }
-            else
-            {
-                return ((v >= 0) ? " " : "") + v.ToString("000.0000") +  appendix;
-            }
-        }
 
 
         protected override void OnPaint(PaintEventArgs e)
@@ -63,19 +48,52 @@ namespace PhosphorDisplay
             if (displayRms)
             {
                 g.DrawString("RMS:", fontSmall, Brushes.Turquoise, 5, 5);
-                g.DrawString(ToUnit(rmsCurrent, "A"), fontBig, Brushes.Turquoise, 8, 25);
+                g.DrawString(Units.ToUnit(rmsCurrent, "A"), fontBig, Brushes.Turquoise, 8, 25);
+
+                var watts = sixDigitVoltage * rmsCurrent;
+                g.DrawString(Units.ToUnit(watts, "W"), fontBig, Brushes.Turquoise, 8, 65);
             }else
             {
                 g.DrawString("Mean:", fontSmall, Brushes.Turquoise, 5, 5);
-                g.DrawString(ToUnit(meanCurrent, "A"), fontBig, Brushes.Turquoise, 8, 25);
+                g.DrawString(Units.ToUnit(meanCurrent, "A"), fontBig, Brushes.Turquoise, 8, 25);
+
+                var ohms = sixDigitVoltage / meanCurrent;
+                g.DrawString(Units.ToUnit(ohms, "R"), fontBig, Brushes.Turquoise, 8, 65);
             }
-            g.DrawString(ToUnit(sixDigitVoltage, "V"), fontBig, Brushes.Turquoise, 8, 45);
+            g.DrawString(Units.ToUnit(sixDigitVoltage, "V"), fontBig, Brushes.Turquoise, 8, 45);
 
-            g.DrawString("Min:", fontSmall, Brushes.Turquoise, 5, 70);
-            g.DrawString(ToUnit(minCurrent, "A"), fontBig, Brushes.Turquoise, 8, 85);
-            g.DrawString("Max:", fontSmall, Brushes.Turquoise, 5, 110);
-            g.DrawString(ToUnit(maxCurrent, "A"), fontBig, Brushes.Turquoise, 8, 125);
+            g.DrawString("Min:", fontSmall, Brushes.Turquoise, 5, 90);
+            g.DrawString(Units.ToUnit(minCurrent, "A"), fontBig, Brushes.Turquoise, 8, 105);
+            g.DrawString("Max:", fontSmall, Brushes.Turquoise, 5, 130);
+            g.DrawString(Units.ToUnit(maxCurrent, "A"), fontBig, Brushes.Turquoise, 8, 145);
 
+        }
+    }
+
+    public static class Units
+    {
+        public static string ToUnit(float v, string appendix)
+        {
+            if (Math.Abs(v) < 1.0 / 1000)
+            {
+                return ((v >= 0) ? " " : "") + (v * 1000000).ToString("000.000 ") + "µ" + appendix;
+            }
+            else if (Math.Abs(v) < 1.0)
+            {
+                return ((v >= 0) ? " " : "") + (v * 1000).ToString("000.00000") + "m" + appendix;
+            }
+            else if (Math.Abs(v) < 1000)
+            {
+                return ((v >= 0) ? " " : "") + v.ToString("000.00000") + appendix;
+            }
+            else if (Math.Abs(v) < 1000000)
+            {
+                return ((v >= 0) ? " " : "") + (v / 1000).ToString("000.000") + "k" + appendix;
+            }
+            else
+            {
+                return ((v >= 0) ? " " : "") + (v / 1000000).ToString("000.000") + "M" + appendix;
+            }
         }
     }
 }

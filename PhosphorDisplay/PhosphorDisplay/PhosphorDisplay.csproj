@@ -21,6 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <UseVSHostingProcess>true</UseVSHostingProcess>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -51,11 +52,11 @@
     <Compile Include="Data\DataType.cs" />
     <Compile Include="Data\IDataSource.cs" />
     <Compile Include="Data\NetStream.cs" />
-    <Compile Include="Form1.cs">
+    <Compile Include="PhosphorDisplay.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form1.Designer.cs">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <Compile Include="PhosphorDisplay.Designer.cs">
+      <DependentUpon>PhosphorDisplay.cs</DependentUpon>
     </Compile>
     <Compile Include="PaCommand.cs" />
     <Compile Include="Program.cs" />
@@ -75,9 +76,15 @@
     <Compile Include="ucRmsMeter.Designer.cs">
       <DependentUpon>ucRmsMeter.cs</DependentUpon>
     </Compile>
+    <Compile Include="ucScopeControls.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ucScopeControls.Designer.cs">
+      <DependentUpon>ucScopeControls.cs</DependentUpon>
+    </Compile>
     <Compile Include="Waveform.cs" />
-    <EmbeddedResource Include="Form1.resx">
-      <DependentUpon>Form1.cs</DependentUpon>
+    <EmbeddedResource Include="PhosphorDisplay.resx">
+      <DependentUpon>PhosphorDisplay.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -93,6 +100,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="ucRmsMeter.resx">
       <DependentUpon>ucRmsMeter.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="ucScopeControls.resx">
+      <DependentUpon>ucScopeControls.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

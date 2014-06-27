@@ -23,7 +23,10 @@ namespace PhosphorDisplay.Acquisition
 
         public float LastVoltageMeasurent { get; private set; }
 
+        public double LongAcquisitionTime { get; set; }
         public double AcquisitionTime { get; set; }
+        public double PretriggerTime { get; set; }
+
 
         public AcquisitionEngine(IDataSource source)
         {
@@ -62,7 +65,7 @@ namespace PhosphorDisplay.Acquisition
                 overviewWf.Store(overviewTimestamp, new float[1] { s });
             }
 
-            if (DateTime.Now.Subtract(overviewWfLastCapture).TotalMilliseconds >= 1000/10)
+            if (DateTime.Now.Subtract(overviewWfLastCapture).TotalMilliseconds >= LongAcquisitionTime *1000)
             {
                 if (OverviewWaveform != null)
                     OverviewWaveform(overviewWf);
@@ -87,15 +90,17 @@ namespace PhosphorDisplay.Acquisition
             AcquisitionLength = 1+(int)(AcquisitionTime*Source.SampleRate);
             if (AcquisitionLength < 15) AcquisitionLength = 15;
 
-            Pretrigger = AcquisitionLength / 2;
+            Pretrigger = (int) (PretriggerTime*Source.SampleRate) + AcquisitionLength / 2;
 
             lock (samplesOverflowSink)
             {
                 samplesOverflowSink.AddRange(data.Samples);
 
-                if (samplesOverflowSink.Count > Pretrigger*4)
+                var pretriggerSampleDepth = (int) Source.SampleRate;
+
+                if (samplesOverflowSink.Count > pretriggerSampleDepth)
                 {
-                    samplesOverflowSink.RemoveRange(0, samplesOverflowSink.Count - Pretrigger * 4);
+                    samplesOverflowSink.RemoveRange(0, samplesOverflowSink.Count - pretriggerSampleDepth);
                 }
 
                 var triggerInfo = new TriggerInfo(true, 0); // dummy

@@ -17,7 +17,7 @@ namespace PhosphorDisplay.Data
 
         #region Implementation of IDataSource
 
-        public float SampleRate { get; private set; }
+        public float SampleRate { get { return samplesPerSecond; } }
         public event DataSourceEvent Data;
         public event HighresEvent HighresVoltage;
         public event EventHandler Connected;
@@ -56,8 +56,11 @@ namespace PhosphorDisplay.Data
         #endregion
 
         private int sampleCounter = 0;
-        public int samplesPerSecond = 400000;
-        public int freq = 1000;
+        public int samplesPerSecond = 32000;
+        private float accumulatedPhase = 0.0f;
+        private float amModulation = 0.0f;
+
+        public int freq = 50;
 
         private void GenerateDataElapse(object sender, EventArgs eventArgs)
         {
@@ -65,7 +68,7 @@ namespace PhosphorDisplay.Data
             int generatingSamples = samplesPerSecond /100;
 
             float[] samples = new float[generatingSamples];
-            var timeInterval = 1.0/samplesPerSecond;
+            var timeInterval = 1.0f/samplesPerSecond;
 
             for (int i = 0; i < generatingSamples; i++)
             {
@@ -73,7 +76,13 @@ namespace PhosphorDisplay.Data
 
                 var t = timeInterval*k;
 
-                samples[i] = (float) (Math.Sin(2*Math.PI*t*(freq )) + (r.Next(2005, 5005) / 100000.0f));
+                accumulatedPhase += timeInterval*1.0f*freq;
+                accumulatedPhase %= 1;
+
+                var s = Math.Sin(2*Math.PI*accumulatedPhase);
+                s += r.Next(-1005, 1005)/100000.0f;
+
+                samples[i] = (float) (s);
             }
             sampleCounter += generatingSamples;
 

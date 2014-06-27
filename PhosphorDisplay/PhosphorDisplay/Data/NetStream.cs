@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -103,8 +104,8 @@ namespace PhosphorDisplay.Data
             settings[10] = 0;
             settings[11] = 0;
 
-            settings[12 + 2] = 3; // gain
-            settings[12 + 4] = 7; // acq speed
+            settings[12 + 2] = 1; // gain
+            settings[12 + 4] = 5; // acq speed
 
             AdcMcp = settings[4] == 1;
             Gain = (int)Math.Pow(10, settings[12 + 2]);
@@ -130,7 +131,8 @@ namespace PhosphorDisplay.Data
 
             // For testing purposes:
             if (HighresVoltage != null)
-                HighresVoltage(3.30856189727783203125f);
+                HighresVoltage(3.177856189727783203125f);
+            //    HighresVoltage(3.30856189727783203125f);
         }
 
         public void Stop()
@@ -214,11 +216,12 @@ namespace PhosphorDisplay.Data
                 }
                 if (pkgType == PaCommand.HIGHRES_DATA)
                 {
-                    var voltInt = BitConverter.ToInt32(payload, 0);
+                    var voltInt = BitConverter.ToUInt32(payload, 0);
+                    voltInt = voltInt >> 9;
+                    var voltFlt = (voltInt)*1.2f/0x1FFFFF*2f*23;
 
-                    var voltFlt = voltInt*2.5f/0x1FFFFF*23;
 
-                    if (HighresVoltage != null)
+                    if (voltFlt>0 && voltFlt<12 && HighresVoltage != null)
                         HighresVoltage(voltFlt);
                 }
             }
@@ -260,10 +263,10 @@ namespace PhosphorDisplay.Data
                         switch(adc)
                         {
                             case 0:
-                                currentValue -= 0.18f;
+                                currentValue += 0.18f;
                                 break;
                             case 1:
-                                currentValue -= 0.12f;
+                                currentValue += 0.12f;
                                 break;
                             case 2:
                                 currentValue += 0.37f;
@@ -277,7 +280,11 @@ namespace PhosphorDisplay.Data
                     {
                         currentValue -= 2.5f;
                     }
-                    currentValue /= 1.03f;
+
+                    if (Gain == 1000)
+                        currentValue /= 1.03f;
+                    else
+                        currentValue /= 1.02f;
                     currentValue /= 1000000;
                 }
                 else

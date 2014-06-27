@@ -239,9 +239,12 @@ namespace PhosphorDisplay
                                         for (var yInterpolated = 0; yInterpolated < -dy; yInterpolated++)
                                         {
                                             var xInterpolated = lastX + dx * yInterpolated / -dy;
+                                            
                                             try
                                             {
-                                            intensity[ch][xInterpolated][lastY - yInterpolated]++;
+                                                var y_ = Math.Min(graphHeight-1, lastY - yInterpolated);
+
+                                            intensity[ch][xInterpolated][y_]++;
                                             }
                                             catch
                                             {
@@ -293,7 +296,12 @@ namespace PhosphorDisplay
                         // The accurateness and contrast of the intensity graded displayTrig can be changed here.
                         // With the SQRT less-freuqent signals are "amplified" and more frequent signals are compressed.
                         // The offset will also determine how visible less frequent options are seen.
-                        var perc = (float)Math.Pow(i * 1.0f / noOfPens/  compressionRatio, 0.5) * 2 * 300.0f + 10.0f;
+                        var perc = 0.0f;
+
+                        if (lowContrast)
+                            perc = (float)Math.Pow(i * 1.0f / compressionRatio, 0.5) *  100.0f + 5.0f;
+                        else
+                            perc = (float)Math.Pow(i * 1.0f / noOfPens / compressionRatio, 0.5) * 100.0f + 10.0f;
 
                         // Fix perc if <0% or >100% or "ERR"
                         if (perc >= 100) perc = 100;
@@ -385,6 +393,7 @@ namespace PhosphorDisplay
         public float speed;
         public float overhead;
         public int measurements;
+        public bool lowContrast;
 
         public void AddRange(IEnumerable<Waveform> wf)
         {
