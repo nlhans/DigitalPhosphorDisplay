@@ -56,11 +56,11 @@ namespace PhosphorDisplay.Data
         #endregion
 
         private int sampleCounter = 0;
-        public int samplesPerSecond = 32000;
+        public int samplesPerSecond = 250000;
         private float accumulatedPhase = 0.0f;
         private float amModulation = 0.0f;
 
-        public int freq = 50;
+        public int freq = 500;
 
         private void GenerateDataElapse(object sender, EventArgs eventArgs)
         {
@@ -80,6 +80,7 @@ namespace PhosphorDisplay.Data
                 accumulatedPhase %= 1;
 
                 var s = Math.Sin(2*Math.PI*accumulatedPhase);
+                s *= 1/Math.Sqrt(2);
                 s += r.Next(-1005, 1005)/100000.0f;
 
                 samples[i] = (float) (s);

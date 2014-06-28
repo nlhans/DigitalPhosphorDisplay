@@ -37,19 +37,25 @@
             this.lbAmpPerDiv = new System.Windows.Forms.Label();
             this.tbSecPerDiv = new System.Windows.Forms.TrackBar();
             this.tbAmpPerDiv = new System.Windows.Forms.TrackBar();
-            this.tbADC = new System.Windows.Forms.TabPage();
+            this.tabADC = new System.Windows.Forms.TabPage();
+            this.btSendCfg = new System.Windows.Forms.Button();
+            this.cbAdcType = new System.Windows.Forms.ComboBox();
+            this.cbGain = new System.Windows.Forms.ComboBox();
+            this.lbSuggestedGain = new System.Windows.Forms.Label();
+            this.cbAdcSpeed = new System.Windows.Forms.ComboBox();
             this.tabs.SuspendLayout();
             this.tbScope.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDivScnd)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDiv)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbAmpPerDiv)).BeginInit();
+            this.tabADC.SuspendLayout();
             this.SuspendLayout();
             // 
             // tabs
             // 
             this.tabs.Appearance = System.Windows.Forms.TabAppearance.FlatButtons;
             this.tabs.Controls.Add(this.tbScope);
-            this.tabs.Controls.Add(this.tbADC);
+            this.tabs.Controls.Add(this.tabADC);
             this.tabs.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabs.Location = new System.Drawing.Point(0, 0);
             this.tabs.Name = "tabs";
@@ -136,16 +142,86 @@
             this.tbAmpPerDiv.Size = new System.Drawing.Size(165, 45);
             this.tbAmpPerDiv.TabIndex = 7;
             // 
-            // tbADC
+            // tabADC
             // 
-            this.tbADC.BackColor = System.Drawing.Color.Black;
-            this.tbADC.ForeColor = System.Drawing.Color.White;
-            this.tbADC.Location = new System.Drawing.Point(4, 25);
-            this.tbADC.Name = "tbADC";
-            this.tbADC.Padding = new System.Windows.Forms.Padding(3);
-            this.tbADC.Size = new System.Drawing.Size(184, 371);
-            this.tbADC.TabIndex = 1;
-            this.tbADC.Text = "A/D";
+            this.tabADC.BackColor = System.Drawing.Color.Black;
+            this.tabADC.Controls.Add(this.cbAdcSpeed);
+            this.tabADC.Controls.Add(this.lbSuggestedGain);
+            this.tabADC.Controls.Add(this.cbGain);
+            this.tabADC.Controls.Add(this.cbAdcType);
+            this.tabADC.Controls.Add(this.btSendCfg);
+            this.tabADC.ForeColor = System.Drawing.Color.White;
+            this.tabADC.Location = new System.Drawing.Point(4, 25);
+            this.tabADC.Name = "tabADC";
+            this.tabADC.Padding = new System.Windows.Forms.Padding(3);
+            this.tabADC.Size = new System.Drawing.Size(184, 371);
+            this.tabADC.TabIndex = 1;
+            this.tabADC.Text = "A/D";
+            // 
+            // btSendCfg
+            // 
+            this.btSendCfg.ForeColor = System.Drawing.Color.Black;
+            this.btSendCfg.Location = new System.Drawing.Point(52, 100);
+            this.btSendCfg.Name = "btSendCfg";
+            this.btSendCfg.Size = new System.Drawing.Size(75, 23);
+            this.btSendCfg.TabIndex = 15;
+            this.btSendCfg.Text = "Send Cfg";
+            this.btSendCfg.UseVisualStyleBackColor = true;
+            this.btSendCfg.Click += new System.EventHandler(this.btSendCfg_Click);
+            // 
+            // cbAdcType
+            // 
+            this.cbAdcType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbAdcType.FormattingEnabled = true;
+            this.cbAdcType.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.cbAdcType.Items.AddRange(new object[] {
+            "STM32F4",
+            "MCP3911"});
+            this.cbAdcType.Location = new System.Drawing.Point(6, 6);
+            this.cbAdcType.Name = "cbAdcType";
+            this.cbAdcType.Size = new System.Drawing.Size(121, 21);
+            this.cbAdcType.TabIndex = 16;
+            // 
+            // cbGain
+            // 
+            this.cbGain.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbGain.FormattingEnabled = true;
+            this.cbGain.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.cbGain.Items.AddRange(new object[] {
+            "1",
+            "10",
+            "100",
+            "1000"});
+            this.cbGain.Location = new System.Drawing.Point(6, 33);
+            this.cbGain.Name = "cbGain";
+            this.cbGain.Size = new System.Drawing.Size(121, 21);
+            this.cbGain.TabIndex = 17;
+            // 
+            // lbSuggestedGain
+            // 
+            this.lbSuggestedGain.AutoSize = true;
+            this.lbSuggestedGain.Location = new System.Drawing.Point(6, 57);
+            this.lbSuggestedGain.Name = "lbSuggestedGain";
+            this.lbSuggestedGain.Size = new System.Drawing.Size(35, 13);
+            this.lbSuggestedGain.TabIndex = 18;
+            this.lbSuggestedGain.Text = "label1";
+            // 
+            // cbAdcSpeed
+            // 
+            this.cbAdcSpeed.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbAdcSpeed.FormattingEnabled = true;
+            this.cbAdcSpeed.Items.AddRange(new object[] {
+            "1/1",
+            "1/2",
+            "1/4",
+            "1/8",
+            "1/16",
+            "1/32",
+            "1/64"});
+            this.cbAdcSpeed.Location = new System.Drawing.Point(6, 73);
+            this.cbAdcSpeed.Name = "cbAdcSpeed";
+            this.cbAdcSpeed.Size = new System.Drawing.Size(121, 21);
+            this.cbAdcSpeed.TabIndex = 19;
             // 
             // ucScopeControls
             // 
@@ -161,6 +237,8 @@
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDivScnd)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDiv)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbAmpPerDiv)).EndInit();
+            this.tabADC.ResumeLayout(false);
+            this.tabADC.PerformLayout();
             this.ResumeLayout(false);
 
         }
@@ -176,7 +254,12 @@
         private System.Windows.Forms.Label lbAmpPerDiv;
         private System.Windows.Forms.TrackBar tbSecPerDiv;
         private System.Windows.Forms.TrackBar tbAmpPerDiv;
-        private System.Windows.Forms.TabPage tbADC;
+        private System.Windows.Forms.TabPage tabADC;
+        private System.Windows.Forms.ComboBox cbAdcSpeed;
+        private System.Windows.Forms.Label lbSuggestedGain;
+        private System.Windows.Forms.ComboBox cbGain;
+        private System.Windows.Forms.ComboBox cbAdcType;
+        private System.Windows.Forms.Button btSendCfg;
 
     }
 }

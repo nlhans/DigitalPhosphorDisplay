@@ -52,6 +52,7 @@
     <Compile Include="Data\DataType.cs" />
     <Compile Include="Data\IDataSource.cs" />
     <Compile Include="Data\NetStream.cs" />
+    <Compile Include="Data\NetStreamConfiguration.cs" />
     <Compile Include="PhosphorDisplay.cs">
       <SubType>Form</SubType>
     </Compile>

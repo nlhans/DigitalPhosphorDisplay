@@ -84,38 +84,47 @@ namespace PhosphorDisplay.Data
 
         public void Configure(object configuration)
         {
-            Stop();
-            Thread.Sleep(25);
+            if (configuration is NetStreamConfiguration)
+            {
+                var cfg = (NetStreamConfiguration) configuration;
 
-            var settings = new byte[12 + 16];
-            settings[0] = 0;
-            settings[1] = 0;
-            settings[2] = 0;
-            settings[3] = 0;
+                Stop();
+                Thread.Sleep(25);
 
-            settings[4] = 1; // mode 0 
-            settings[5] = 0;
+                var settings = new byte[12 + 16];
+                settings[0] = 0;
+                settings[1] = 0;
+                settings[2] = 0;
+                settings[3] = 0;
 
-            settings[6] = 32;
-            settings[7] = 0;//256 depth
+                settings[4] = (byte) (cfg.UseFastAdc ? 0 : 1); // mode 0 
+                settings[5] = 0;
 
-            settings[8] = 0;
-            settings[9] = 0;
-            settings[10] = 0;
-            settings[11] = 0;
+                settings[6] = 32;
+                settings[7] = 0;//256 depth
 
-            settings[12 + 2] = 1; // gain
-            settings[12 + 4] = 5; // acq speed
+                settings[8] = 0;
+                settings[9] = 0;
+                settings[10] = 0;
+                settings[11] = 0;
 
-            AdcMcp = settings[4] == 1;
-            Gain = (int)Math.Pow(10, settings[12 + 2]);
+                settings[12 + 2] = (byte)(Math.Log10(cfg.AfeGain)); // gain
+                settings[12 + 4] = (byte)(cfg.AdcSpeed); // acq speed
 
-            if (settings[4] == 1)
-                SampleRate = 262000 / (float)Math.Pow(2, settings[12 + 4]);
-            else
-                SampleRate = 4000000;
+                AdcMcp = settings[4] == 1;
+                Gain = (int)Math.Pow(10, settings[12 + 2]);
 
-            SendCommand(PaCommand.SET_STREAM_SETTINGS, settings);
+                if (settings[4] == 1)
+                    SampleRate = 262000 / (float)Math.Pow(2, settings[12 + 4]);
+                else
+                    SampleRate = 4000000;
+
+                SendCommand(PaCommand.SET_STREAM_SETTINGS, settings);
+
+                Thread.Sleep(25);
+
+                Start();
+            }
         }
 
         public void Start()
@@ -123,9 +132,6 @@ namespace PhosphorDisplay.Data
             // Give the power analyzer 50ms to recover
             if (DateTime.Now.Subtract(StreamStoppedAt).TotalMilliseconds<50)
                 Thread.Sleep((int)DateTime.Now.Subtract(StreamStoppedAt).TotalMilliseconds);
-
-            Configure(null);
-            Thread.Sleep(25);
 
             SendCommand(PaCommand.SET_STREAM_START, new byte[0]);
 
@@ -234,7 +240,7 @@ namespace PhosphorDisplay.Data
         {
             float timeInterval = 1.0f / SampleRate;
             float[] samples = new float[packet.Length/2];
-            
+
             for (int k = 0; k < packet.Length / 2; k++)
             {
                 short sh = BitConverter.ToInt16(packet, k*2);

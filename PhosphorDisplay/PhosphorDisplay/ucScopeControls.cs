@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using PhosphorDisplay.Acquisition;
+using PhosphorDisplay.Data;
 
 namespace PhosphorDisplay
 {
@@ -78,6 +79,12 @@ namespace PhosphorDisplay
 
             InitializeComponent();
 
+            cbTrigger.DisplayMember = "Name";
+            cbTrigger.ValueMember = "Name";
+            cbTrigger.DataSource = a.TriggerSources;
+            cbTrigger.SelectedIndex = 1;
+            cbTrigger.SelectedIndexChanged += cbTrigger_SelectedIndexChanged;
+
             tbAmpPerDiv.Minimum = 0;
             tbSecPerDiv.Minimum = 0;
             tbSecPerDivScnd.Minimum = 0;
@@ -90,13 +97,29 @@ namespace PhosphorDisplay
             tbSecPerDiv.ValueChanged += tbSecPerDiv_ValueChanged;
             tbSecPerDivScnd.ValueChanged += tbSecPerDivScnd_ValueChanged;
 
-            tbAmpPerDiv.Value = tbAmpPerDiv.Maximum - 1;
-            tbSecPerDiv.Value = 0;
-            tbSecPerDivScnd.Value = tbSecPerDivScnd.Maximum/2;
+            tbAmpPerDiv.Value = tbAmpPerDiv.Maximum;
+            tbSecPerDiv.Value = timeSteps.Count(x => x < 2.0f / 1000);
+            tbSecPerDivScnd.Value = timeSteps.Count(x=> x < 100.0f/1000);
 
             tbSecPerDivScnd_ValueChanged(null, new EventArgs());
             tbSecPerDiv_ValueChanged(null, new EventArgs());
             tbAmpPerDiv_ValueChanged(null, new EventArgs());
+
+            cbAdcSpeed.SelectedIndex = 0;
+            cbAdcType.SelectedIndex = 1;
+            cbGain.SelectedIndex = 1;
+        }
+
+        void cbTrigger_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            var name = cbTrigger.SelectedValue.ToString();
+
+            if (acq.TriggerSources.Any(x=>x.Name == name))
+            {
+                var trigger = acq.TriggerSources.FirstOrDefault(x => x.Name == name);
+
+                acq.SetTrigger(trigger);
+            }
         }
 
         private void tbSecPerDivScnd_ValueChanged(object sender, EventArgs e)
@@ -124,6 +147,7 @@ namespace PhosphorDisplay
             displayTrigger.horizontalScale = timestep;
         }
 
+        private int lastSugGain = 1;
         private void tbAmpPerDiv_ValueChanged(object sender, EventArgs e)
         {
             var ind = tbAmpPerDiv.Value;
@@ -133,6 +157,39 @@ namespace PhosphorDisplay
 
             displayLong.verticalScale = new float[3] {currentstep, 1, 1};
             displayTrigger.verticalScale = new float[3] {currentstep, 1, 1};
+
+            var scopeMaxAmplitude = displayTrigger.verticalDivisions*currentstep;
+            // Max amplitude per gain
+            var R = 0.1;
+            var maxAmplG1 = 13.6 * R;
+            var maxAmplG10 = 1.36 * R;
+            var maxAmplG100 = 0.136 * R;
+            var maxAmplG1000 = 0.0136 * R;
+            var sugGain = 1;
+
+            if (scopeMaxAmplitude < maxAmplG1000) sugGain = 1000;
+            else if (scopeMaxAmplitude < maxAmplG100) sugGain = 100;
+            else if (scopeMaxAmplitude < maxAmplG10) sugGain = 10;
+            else if (scopeMaxAmplitude < maxAmplG1) sugGain = 1;
+
+            if (sugGain != lastSugGain)
+                lbAmpPerDiv.ForeColor = Color.Orange;
+            else
+                lbAmpPerDiv.ForeColor = Color.White;
+
+            lbSuggestedGain.Text = "Suggested gain: " + sugGain;
+        }
+
+        private void btSendCfg_Click(object sender, EventArgs e)
+        {
+            lbAmpPerDiv.ForeColor = Color.White;
+
+            NetStreamConfiguration cfg = new NetStreamConfiguration();
+            cfg.AfeGain = (int)Math.Pow(10, cbGain.SelectedIndex);
+            cfg.AdcSpeed = cbAdcSpeed.SelectedIndex;
+            cfg.UseFastAdc = cbAdcType.SelectedIndex == 0;
+
+            acq.Source.Configure(cfg);
         }
 
     }

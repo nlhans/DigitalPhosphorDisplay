@@ -6,6 +6,20 @@ using System.Threading.Tasks;
 
 namespace PhosphorDisplay.Triggers
 {
+
+    public class FreeRunning : ITrigger
+    {
+        #region Implementation of ITrigger
+
+        public string Name { get { return "Free running"; } }
+        public TriggerInfo IsTriggered(IEnumerable<float> samples, int start)
+        {
+            return new TriggerInfo(true, start + 1);
+        }
+
+        #endregion
+    }
+
     public class Edge : ITrigger
     {
         public Edge()

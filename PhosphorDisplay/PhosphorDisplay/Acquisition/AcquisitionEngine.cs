@@ -18,6 +18,8 @@ namespace PhosphorDisplay.Acquisition
         public IDataSource Source { get; private set; }
         public ITrigger Trigger { get; private set; }
 
+        public List<ITrigger> TriggerSources { get; set; } 
+
         public int AcquisitionLength { get; private set; }
         public int Pretrigger { get; private set; }
 
@@ -35,6 +37,10 @@ namespace PhosphorDisplay.Acquisition
             overviewWfLastCapture = DateTime.Now;
             overviewWf = new Waveform(1, 6000000);
 
+            TriggerSources = new List<ITrigger>();
+            TriggerSources.Add(new FreeRunning());
+            TriggerSources.Add(new Edge());
+
             Trigger = new Edge(); // TODO: Temporary trigger
 
             Source = source;
@@ -43,7 +49,13 @@ namespace PhosphorDisplay.Acquisition
             Source.HighresVoltage += Source_HighresVoltage;
 
             Source.Connect(null);
-            Source.Start();
+            var dummyCfg = new NetStreamConfiguration();
+            dummyCfg.AdcSpeed = 0;
+            dummyCfg.AfeGain = 0;
+            dummyCfg.UseFastAdc = false;
+
+            Source.Configure(dummyCfg);
+            
 
         }
 
@@ -142,7 +154,7 @@ namespace PhosphorDisplay.Acquisition
 
         public void SetTrigger(ITrigger tr)
         {
-            Trigger = Trigger;
+            Trigger = tr;
         }
     }
 }
