@@ -12,7 +12,6 @@ namespace PhosphorDisplay
         public float SampleTime = -1f;
         public float LastSampleTime = 0.0f;
         private int MemDepth;
-
         public Waveform(int channels, int memDepth)
         {
             Channels = channels;
@@ -23,10 +22,10 @@ namespace PhosphorDisplay
             MemDepth = memDepth;
             Horizontal = new float[memDepth];
         }
-
         public void Store(float time, float[] ch)
         {
-            if (Samples >= MemDepth) return;
+            if (Samples >= MemDepth)
+                return;
             Horizontal[Samples] = time;
             for (int i = 0; i < Channels; i++)
                 Data[i][Samples] = ch[i];
@@ -34,20 +33,19 @@ namespace PhosphorDisplay
 
 
             if (SampleTime < 0)
-                SampleTime = time-LastSampleTime;
+                SampleTime = time - LastSampleTime;
             else
-                SampleTime = (time-LastSampleTime)/2.0f + SampleTime/2.0f;
+                SampleTime = (time - LastSampleTime) / 2.0f + SampleTime / 2.0f;
 
             LastSampleTime = time;
         }
-
         public void Process(int requiredWidth)
         {
-            if (requiredWidth >= Samples*2)
+            if (requiredWidth >= Samples * 2)
             {
                 // We're going to interpolate signals
-                var scaleFactor = requiredWidth/Samples;
-                var newMemDepth = scaleFactor*Samples;
+                var scaleFactor = requiredWidth / Samples;
+                var newMemDepth = scaleFactor * Samples;
                 var NewData = new float[Channels][];
                 var NewTime = new float[newMemDepth];
                 for (int ch = 0; ch < Channels; ch++)
@@ -62,18 +60,18 @@ namespace PhosphorDisplay
                     for (int i = 0; i < newMemDepth; i++)
                     {
                         var val = 0.0f;
-                        var part = i%scaleFactor*1.0f;
-                        if (i%scaleFactor == 0)
+                        var part = i % scaleFactor * 1.0f;
+                        if (i % scaleFactor == 0)
                         {
-                            lastInpl = Data[ch][i/scaleFactor];
-                            nextInpl = i/scaleFactor + 1 == Samples ? lastInpl : Data[ch][i/scaleFactor + 1];
-                            lastTime = Horizontal[i/scaleFactor];
-                            nextTime = i/scaleFactor + 1 == Samples ? lastTime : Horizontal[i/scaleFactor + 1];
+                            lastInpl = Data[ch][i / scaleFactor];
+                            nextInpl = i / scaleFactor + 1 == Samples ? lastInpl : Data[ch][i / scaleFactor + 1];
+                            lastTime = Horizontal[i / scaleFactor];
+                            nextTime = i / scaleFactor + 1 == Samples ? lastTime : Horizontal[i / scaleFactor + 1];
                         }
                         var time = nextTime * (part / scaleFactor) + lastTime * (1 - part / scaleFactor);
                         
                         // Linear:
-                        val = nextInpl*(part/scaleFactor) + lastInpl*(1 - part/scaleFactor);
+                        val = nextInpl * (part / scaleFactor) + lastInpl * (1 - part / scaleFactor);
 
                         // SINC:
                         /* INCREDIBLY slow

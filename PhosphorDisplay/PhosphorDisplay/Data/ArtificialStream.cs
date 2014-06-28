@@ -19,6 +19,9 @@ namespace PhosphorDisplay.Data
         
         
         
+        
+        
+        
         #endif
         #region Implementation of IDataSource
         public float SampleRate { get { return samplesPerSecond; } }
@@ -64,10 +67,10 @@ namespace PhosphorDisplay.Data
         }
         #endregion
         private int sampleCounter = 0;
-        public int samplesPerSecond = 250000;
+        public int samplesPerSecond = 500000;
         private float accumulatedPhase = 0.0f;
         private float amModulation = 0.0f;
-        public int freq = 500;
+        public int freq = 2500;
         private void GenerateDataElapse(object sender, EventArgs eventArgs)
         {
             var r = new Random();

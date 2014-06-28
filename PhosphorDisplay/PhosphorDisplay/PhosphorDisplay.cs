@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using PhosphorDisplay.Acquisition;
 using PhosphorDisplay.Data;
 using Timer = System.Windows.Forms.Timer;
+using PhosphorDisplay.Widget;
 
 namespace PhosphorDisplay
 {
@@ -34,18 +35,18 @@ namespace PhosphorDisplay
 
             // Zoom waveform
             displayTrig = new ucPhosphorDisplay();
-            displayTrig.channels = 1;
+            displayTrig.Channels = 1;
 
-            displayTrig.horizontalScale = (float)(acqEngine.AcquisitionTime / displayTrig.horizontalDivisions / 2);
-            displayTrig.verticalScale = new float[3] { 0.25f, 1, 1 };
+            displayTrig.HorizontalScale = (float)(acqEngine.AcquisitionTime / displayTrig.HorizontalDivisions / 2);
+            displayTrig.VerticalScale = new float[3] { 0.25f, 1, 1 };
 
             Controls.Add(displayTrig);
             
             // Triggered waveform
             displayOverview = new ucPhosphorDisplay();
-            displayOverview.channels = 1;
-            displayOverview.verticalScale = displayTrig.verticalScale;
-            displayOverview.horizontalScale = 1.0f;
+            displayOverview.Channels = 1;
+            displayOverview.VerticalScale = displayTrig.VerticalScale;
+            displayOverview.HorizontalScale = 1.0f;
             displayOverview.lowContrast = true;
 
             Controls.Add(displayOverview);
@@ -109,8 +110,8 @@ namespace PhosphorDisplay
         }
         void acqEngine_OverviewWaveform(Waveform f)
         {
-            displayOverview.horizontalScale = f.Horizontal[f.Samples - 1] / 10;
-            displayOverview.horizontalOffset = displayOverview.horizontalScale * displayOverview.horizontalDivisions;
+            displayOverview.HorizontalScale = f.Horizontal[f.Samples - 1] / 10;
+            displayOverview.HorizontalOffset = displayOverview.HorizontalScale * displayOverview.HorizontalDivisions;
             
             displayOverview.Add(f);
 

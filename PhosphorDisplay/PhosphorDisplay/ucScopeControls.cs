@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using PhosphorDisplay.Acquisition;
 using PhosphorDisplay.Data;
+using PhosphorDisplay.Widget;
 
 namespace PhosphorDisplay
 {
@@ -127,7 +128,7 @@ namespace PhosphorDisplay
             acq.LongAcquisitionTime = timestep;
 
 
-            displayLong.horizontalScale = timestep;
+            displayLong.HorizontalScale = timestep;
         }
         private void tbSecPerDiv_ValueChanged(object sender, EventArgs e)
         {
@@ -136,9 +137,9 @@ namespace PhosphorDisplay
 
             lbSecPerDiv.Text = Units.ToUnit(timestep, "s") + "/div";
 
-            acq.AcquisitionTime = timestep * displayTrigger.horizontalDivisions * 2;
+            acq.AcquisitionTime = timestep * displayTrigger.HorizontalDivisions * 2;
 
-            displayTrigger.horizontalScale = timestep;
+            displayTrigger.HorizontalScale = timestep;
         }
         private int lastSugGain = 1;
         private void tbAmpPerDiv_ValueChanged(object sender, EventArgs e)
@@ -148,10 +149,10 @@ namespace PhosphorDisplay
 
             lbAmpPerDiv.Text = Units.ToUnit(currentstep, "A") + "/div";
 
-            displayLong.verticalScale = new float[3] { currentstep, 1, 1 };
-            displayTrigger.verticalScale = new float[3] { currentstep, 1, 1 };
+            displayLong.VerticalScale = new float[3] { currentstep, 1, 1 };
+            displayTrigger.VerticalScale = new float[3] { currentstep, 1, 1 };
 
-            var scopeMaxAmplitude = displayTrigger.verticalDivisions * currentstep;
+            var scopeMaxAmplitude = displayTrigger.VerticalDivisions * currentstep;
             // Max amplitude per gain
             var R = 0.1;
             var maxAmplG1 = 13.6 * R;

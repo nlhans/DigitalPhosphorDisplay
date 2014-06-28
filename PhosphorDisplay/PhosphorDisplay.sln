@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhosphorDisplay", "PhosphorDisplay\PhosphorDisplay.csproj", "{00DA1FF5-1136-496E-A1C6-00DEAA2B364C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhosphorDisplay.Widget", "PhosphorDisplay.Widget\PhosphorDisplay.Widget.csproj", "{2B0B52A3-870D-401E-9CD3-1E1B86331263}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -13,6 +15,13 @@ Global
 		{00DA1FF5-1136-496E-A1C6-00DEAA2B364C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00DA1FF5-1136-496E-A1C6-00DEAA2B364C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{00DA1FF5-1136-496E-A1C6-00DEAA2B364C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2B0B52A3-870D-401E-9CD3-1E1B86331263}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B0B52A3-870D-401E-9CD3-1E1B86331263}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B0B52A3-870D-401E-9CD3-1E1B86331263}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B0B52A3-870D-401E-9CD3-1E1B86331263}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = PhosphorDisplay\PhosphorDisplay.csproj
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

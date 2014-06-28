@@ -66,12 +66,6 @@
     <Compile Include="Triggers\Edge.cs" />
     <Compile Include="Triggers\ITrigger.cs" />
     <Compile Include="Triggers\TriggerInfo.cs" />
-    <Compile Include="ucPhosphorDisplay.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="ucPhosphorDisplay.Designer.cs">
-      <DependentUpon>ucPhosphorDisplay.cs</DependentUpon>
-    </Compile>
     <Compile Include="ucRmsMeter.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -84,7 +78,6 @@
     <Compile Include="ucScopeControls.Designer.cs">
       <DependentUpon>ucScopeControls.cs</DependentUpon>
     </Compile>
-    <Compile Include="Waveform.cs" />
     <EmbeddedResource Include="PhosphorDisplay.resx">
       <DependentUpon>PhosphorDisplay.cs</DependentUpon>
     </EmbeddedResource>
@@ -97,9 +90,6 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="ucPhosphorDisplay.resx">
-      <DependentUpon>ucPhosphorDisplay.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="ucRmsMeter.resx">
       <DependentUpon>ucRmsMeter.cs</DependentUpon>
     </EmbeddedResource>
@@ -127,4 +117,10 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <ItemGroup>
+    <ProjectReference Include="..\PhosphorDisplay.Widget\PhosphorDisplay.Widget.csproj">
+      <Project>{2B0B52A3-870D-401E-9CD3-1E1B86331263}</Project>
+      <Name>PhosphorDisplay.Widget</Name>
+    </ProjectReference>
+  </ItemGroup>
 </Project>
