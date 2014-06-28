@@ -19,36 +19,32 @@ namespace PhosphorDisplay
     {
         private bool triggerOk = true;
         private bool overviewRefresh = false;
-
         public ucScopeControls controls;
         public ucPhosphorDisplay displayTrig;
         public ucPhosphorDisplay displayOverview;
         public ucRmsMeter dmm;
-
         public AcquisitionEngine acqEngine;
-
-
         public PhosphorDisplay()
         {
             InitializeComponent();
 
-            acqEngine = new AcquisitionEngine(new NetStream());
-            acqEngine.AcquisitionTime = 0.15f/1000;
-            acqEngine.PretriggerTime = 0.0f/1000;
+            acqEngine = new AcquisitionEngine(new ArtificialStream());
+            acqEngine.AcquisitionTime = 0.15f / 1000;
+            acqEngine.PretriggerTime = 0.0f / 1000;
 
             // Zoom waveform
             displayTrig = new ucPhosphorDisplay();
             displayTrig.channels = 1;
 
-            displayTrig.horizontalScale = (float) (acqEngine.AcquisitionTime/displayTrig.horizontalDivisions/2);
-            displayTrig.verticalScale = new float[3] { 0.25f, 1, 1};
+            displayTrig.horizontalScale = (float)(acqEngine.AcquisitionTime / displayTrig.horizontalDivisions / 2);
+            displayTrig.verticalScale = new float[3] { 0.25f, 1, 1 };
 
             Controls.Add(displayTrig);
             
             // Triggered waveform
             displayOverview = new ucPhosphorDisplay();
             displayOverview.channels = 1;
-            displayOverview.verticalScale= displayTrig.verticalScale;
+            displayOverview.verticalScale = displayTrig.verticalScale;
             displayOverview.horizontalScale = 1.0f;
             displayOverview.lowContrast = true;
 
@@ -69,42 +65,41 @@ namespace PhosphorDisplay
 
             var t = new Timer();
             t.Tick += (sender, args) =>
-                          {
-                              if (triggerOk)
-                              {
-                                  triggerOk = false;
+            {
+                if (triggerOk)
+                {
+                    triggerOk = false;
 
-                                  displayTrig.Invalidate();
-                              }
-                              if(overviewRefresh)
-                              {
-                                  overviewRefresh = false;
+                    displayTrig.Invalidate();
+                }
+                if (overviewRefresh)
+                {
+                    overviewRefresh = false;
 
-                                  dmm.Invalidate();
-                                  displayOverview.Invalidate();
-                              }
-                          };
+                    dmm.Invalidate();
+                    displayOverview.Invalidate();
+                }
+            };
             
             t.Interval = 40; // 25 fps
             t.Start();
 
             acqEngine.Source.HighresVoltage += voltage =>
-                                                   {
-                                                       dmm.sixDigitVoltage = voltage;
-                                                       dmm.Invalidate();
-                                                   };
+            {
+                dmm.sixDigitVoltage = voltage;
+                dmm.Invalidate();
+            };
             this.SizeChanged += Form1_SizeChanged;
         }
-
         void Form1_Layout(object sender, LayoutEventArgs e)
         {
             var h = this.Height;
-            var h1 = (int)(h*0.3);
-            var h2 = (int) (h*0.7);
+            var h1 = (int)(h * 0.3);
+            var h2 = (int)(h * 0.7);
             dmm.Size = new Size(200, h1);
             controls.Size = new Size(200, h2);
 
-            displayOverview.Size = new Size(this.Width-dmm.Width, h1);
+            displayOverview.Size = new Size(this.Width - dmm.Width, h1);
             displayTrig.Size = new Size(this.Width - dmm.Width, h2);
 
             displayOverview.Location = new Point(0, 0);
@@ -112,10 +107,9 @@ namespace PhosphorDisplay
             displayTrig.Location = new Point(0, h1);
             controls.Location = new Point(displayOverview.Width, h1);
         }
-
         void acqEngine_OverviewWaveform(Waveform f)
         {
-            displayOverview.horizontalScale = f.Horizontal[f.Samples - 1]/10;
+            displayOverview.horizontalScale = f.Horizontal[f.Samples - 1] / 10;
             displayOverview.horizontalOffset = displayOverview.horizontalScale * displayOverview.horizontalDivisions;
             
             displayOverview.Add(f);
@@ -126,13 +120,13 @@ namespace PhosphorDisplay
             float currentRms = 0;
             float currentMean = 0;
 
-            for(int k = 0; k < f.Samples;k ++)
+            for (int k = 0; k < f.Samples; k ++)
             {
                 var c = f.Data[0][k];
                 currentMin = Math.Min(currentMin, c);
                 currentMax = Math.Max(currentMax, c);
 
-                currentRms += c*c;
+                currentRms += c * c;
                 currentMean += c;
             }
 
@@ -151,15 +145,11 @@ namespace PhosphorDisplay
 
             overviewRefresh = true;
         }
-
         void acqEngine_Waveform(Waveform f)
         {
             displayTrig.Add(f);
             triggerOk = true;
         }
-
-
-
         void Form1_SizeChanged(object sender, EventArgs e)
         {
             displayTrig.Invalidate();

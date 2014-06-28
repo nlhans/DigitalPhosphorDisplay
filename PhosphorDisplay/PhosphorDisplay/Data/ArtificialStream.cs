@@ -12,11 +12,15 @@ namespace PhosphorDisplay.Data
     {
         public bool IsConnected = false;
         public bool IsRunning = false;
-
+        #if __MonoCS__
+        private Timer generateData;
+        #else
         private MMTimer generateData;
-
+        
+        
+        
+        #endif
         #region Implementation of IDataSource
-
         public float SampleRate { get { return samplesPerSecond; } }
         public event DataSourceEvent Data;
         public event HighresEvent HighresVoltage;
@@ -24,66 +28,68 @@ namespace PhosphorDisplay.Data
         public event EventHandler Disconnected;
         public void Connect(object target)
         {
-            generateData = new MMTimer(10);
+#if __MonoCS__
+            
+            generateData = new Timer();
+            generateData.Interval = 10;
+            generateData.Elapsed += GenerateDataElapse;
+            generateData.Start();
+#else
+                generateData = new MMTimer(10);
             generateData.Tick += GenerateDataElapse;
             generateData.Start();
+#endif
 
             IsConnected = true;
-            if(Connected!=null) Connected(this, new EventArgs());
+            if (Connected != null)
+                Connected(this, new EventArgs());
         }
-
         public void Disconnect()
         {
             IsConnected = false;
-            if (Disconnected != null) Disconnected(this, new EventArgs());
+            if (Disconnected != null)
+                Disconnected(this, new EventArgs());
         }
-
         public void Configure(object configuration)
         {
             // No configuration yet!
         }
-
         public void Start()
         {
             IsRunning = true;
         }
-
         public void Stop()
         {
             IsRunning = false;
         }
-
         #endregion
-
         private int sampleCounter = 0;
         public int samplesPerSecond = 250000;
         private float accumulatedPhase = 0.0f;
         private float amModulation = 0.0f;
-
         public int freq = 500;
-
         private void GenerateDataElapse(object sender, EventArgs eventArgs)
         {
             var r = new Random();
-            int generatingSamples = samplesPerSecond /100;
+            int generatingSamples = samplesPerSecond / 100;
 
             float[] samples = new float[generatingSamples];
-            var timeInterval = 1.0f/samplesPerSecond;
+            var timeInterval = 1.0f / samplesPerSecond;
 
             for (int i = 0; i < generatingSamples; i++)
             {
                 var k = i + sampleCounter;
 
-                var t = timeInterval*k;
+                var t = timeInterval * k;
 
-                accumulatedPhase += timeInterval*1.0f*freq;
+                accumulatedPhase += timeInterval * 1.0f * freq;
                 accumulatedPhase %= 1;
 
-                var s = Math.Sin(2*Math.PI*accumulatedPhase);
-                s *= 1/Math.Sqrt(2);
-                s += r.Next(-1005, 1005)/100000.0f;
+                var s = Math.Sin(2 * Math.PI * accumulatedPhase);
+                s *= 1 / Math.Sqrt(2);
+                s += r.Next(-1005, 1005) / 100000.0f;
 
-                samples[i] = (float) (s);
+                samples[i] = (float)(s);
             }
             sampleCounter += generatingSamples;
 
