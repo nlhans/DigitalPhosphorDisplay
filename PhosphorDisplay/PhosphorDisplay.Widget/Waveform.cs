@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace PhosphorDisplay
 {
@@ -12,18 +13,34 @@ namespace PhosphorDisplay
         public float SampleTime = -1f;
         public float LastSampleTime = 0.0f;
         private int MemDepth;
+        public bool Error;
+
         public Waveform(int channels, int memDepth)
         {
-            Channels = channels;
-            Data = new float[channels][];
-            for (int ch = 0; ch < channels; ch++)
-                Data[ch] = new float[memDepth];
+            try
+            {
+                Error = false;
+                Channels = channels;
+                Data = new float[channels][];
+                for (int ch = 0; ch < channels; ch++)
+                    Data[ch] = new float[memDepth];
 
-            MemDepth = memDepth;
-            Horizontal = new float[memDepth];
+                MemDepth = memDepth;
+                Horizontal = new float[memDepth];
+            }
+            catch (OutOfMemoryException ex)
+            {
+                Error = true;
+            }
+            catch(Exception ex)
+            {
+                Debug.WriteLine("Exception in Waveform constructor: " + ex.Message);
+            }
         }
+
         public void Store(float time, float[] ch)
         {
+            if (Error) return;
             if (Samples >= MemDepth)
                 return;
             Horizontal[Samples] = time;
@@ -41,6 +58,7 @@ namespace PhosphorDisplay
         }
         public void Process(int requiredWidth)
         {
+            if (Error) return;
             if (requiredWidth >= Samples * 2)
             {
                 // We're going to interpolate signals

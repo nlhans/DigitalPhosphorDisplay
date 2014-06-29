@@ -94,7 +94,7 @@ namespace PhosphorDisplay
         }
         void Form1_Layout(object sender, LayoutEventArgs e)
         {
-            var h = this.Height;
+            var h = Height-40;
             var h1 = (int)(h * 0.3);
             var h2 = (int)(h * 0.7);
             dmm.Size = new Size(200, h1);
@@ -110,6 +110,7 @@ namespace PhosphorDisplay
         }
         void acqEngine_OverviewWaveform(Waveform f)
         {
+            if (f.Error) return;
             displayOverview.HorizontalScale = f.Horizontal[f.Samples - 1] / 10;
             displayOverview.HorizontalOffset = displayOverview.HorizontalScale * displayOverview.HorizontalDivisions;
             

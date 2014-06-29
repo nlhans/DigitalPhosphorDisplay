@@ -12,7 +12,7 @@ namespace PhosphorDisplay.Triggers
         #region Implementation of ITrigger
 
         public string Name { get { return "Free running"; } }
-        public TriggerInfo IsTriggered(IEnumerable<float> samples, int start)
+        public TriggerInfo IsTriggered(float[] samples, int start)
         {
             return new TriggerInfo(true, start + 1);
         }
@@ -42,7 +42,7 @@ namespace PhosphorDisplay.Triggers
         #region Implementation of ITrigger
 
         public string Name { get { return "Edge"; } }
-        public TriggerInfo IsTriggered(IEnumerable<float> s, int start)
+        public TriggerInfo IsTriggered(float[] samples, int start)
         {
             TriggerLevelL = -5.5f / 1000;
             TriggerLevelH = 5.5f / 1000;
@@ -51,8 +51,7 @@ namespace PhosphorDisplay.Triggers
             FallingEdge = false;
             //return new TriggerInfo(true, start+1);
 
-            if (start > s.Count() - 1) return new TriggerInfo(false, -1);
-            var samples = s.Take(1000000).ToArray();
+            if (start > samples.Length - 1) return new TriggerInfo(false, -1);
 
             float lastSample = samples[start];
 

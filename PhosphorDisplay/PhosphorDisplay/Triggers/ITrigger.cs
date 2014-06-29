@@ -6,7 +6,7 @@ namespace PhosphorDisplay.Triggers
     {
         string Name { get; }
 
-        TriggerInfo IsTriggered(IEnumerable<float> samples, int start);
+        TriggerInfo IsTriggered(float[] samples, int start);
 
     }
 }

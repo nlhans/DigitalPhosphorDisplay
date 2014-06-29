@@ -99,10 +99,14 @@ namespace PhosphorDisplay.Acquisition
 
         void ProcessWaveform(DataPacket data)
         {
+            var divs = 5;
+            var minAcqLength = 4*divs + 1;
+
             AcquisitionLength = 1+(int)(AcquisitionTime*Source.SampleRate);
-            if (AcquisitionLength < 15) AcquisitionLength = 15;
+            if (AcquisitionLength < minAcqLength) AcquisitionLength = minAcqLength;
 
             Pretrigger = (int) (PretriggerTime*Source.SampleRate) + AcquisitionLength / 2;
+
 
             lock (samplesOverflowSink)
             {
@@ -116,15 +120,19 @@ namespace PhosphorDisplay.Acquisition
                 }
 
                 var triggerInfo = new TriggerInfo(true, 0); // dummy
+                var samplesAsArray = samplesOverflowSink.ToArray();
+                var samplesTotal = samplesAsArray.Length;
+                var walkingOffset = 0;
+                var removeSize = 0;
 
-                while (triggerInfo.Triggered && samplesOverflowSink.Count >= AcquisitionLength + Pretrigger) // always keep 1 waveform extra in memory
+                while (triggerInfo.Triggered && samplesTotal - walkingOffset >= AcquisitionLength + Pretrigger) // always keep 1 waveform extra in memory
                 {
-                    triggerInfo = Trigger.IsTriggered(samplesOverflowSink, 0);
+                    triggerInfo = Trigger.IsTriggered(samplesAsArray, walkingOffset);
 
                     // Skip the waveform (if we keep trigger) till we satisfy the pretrigger requirement.
-                    while (triggerInfo.Triggered && triggerInfo.TriggerPoint < Pretrigger)
+                    while (triggerInfo.Triggered && triggerInfo.TriggerPoint-walkingOffset < Pretrigger)
                     {
-                        triggerInfo = Trigger.IsTriggered(samplesOverflowSink, triggerInfo.TriggerPoint );
+                        triggerInfo = Trigger.IsTriggered(samplesAsArray, triggerInfo.TriggerPoint);
                     }
                     // Only process when actually triggered.
                     if (!triggerInfo.Triggered) break;
@@ -132,8 +140,12 @@ namespace PhosphorDisplay.Acquisition
                     // We take the waveform from the buffer at the triggerpoint, but also subtracting the pre-trigger sample depth.
                     var waveformStart = triggerInfo.TriggerPoint - Pretrigger;
 
+                    if (waveformStart + AcquisitionLength >= samplesTotal) break;
+
                     // Get these samples, and put them into the waveform.
-                    var waveformSamples = samplesOverflowSink.Skip(waveformStart).Take(AcquisitionLength).ToArray();
+                    var waveformSamples = new float[AcquisitionLength];
+                    Array.Copy(samplesAsArray, waveformStart, waveformSamples, 0, AcquisitionLength);
+                    //var waveformSamples = samplesOverflowSink.Skip(waveformStart).Take(AcquisitionLength).ToArray();
                     if (waveformSamples.Length != AcquisitionLength) break;
                     var waveform = new Waveform(1, AcquisitionLength);
                     var timestamp = -Pretrigger*data.TimeInterval;
@@ -145,8 +157,25 @@ namespace PhosphorDisplay.Acquisition
 
                     FireTriggeredWaveform(waveform);
 
-                    samplesOverflowSink.RemoveRange(0, waveformStart+AcquisitionLength-1);
+                    var step = (waveformStart - walkingOffset) + AcquisitionLength;
+                    if (step < minAcqLength)
+                    {
+                        step = minAcqLength;
+                    }
 
+                    if (step > samplesOverflowSink.Count)
+                    {
+                        walkingOffset = 0;
+                        samplesOverflowSink.Clear();
+                        break;
+                    }
+                    //samplesOverflowSink.RemoveRange(0, step);
+                    walkingOffset += step;
+                }
+
+                if(walkingOffset>0)
+                {
+                    samplesOverflowSink.RemoveRange(0, walkingOffset);
                 }
             }
 

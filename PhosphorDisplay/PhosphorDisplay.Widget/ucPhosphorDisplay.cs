@@ -174,7 +174,7 @@ namespace PhosphorDisplay.Widget
 
                             if (y < 0)
                                 y = 0;
-                            if (y > GridHeight)
+                            if (y >= GridHeight)
                                 y = GridHeight - 1;
 
                             // Make a hit for this pixel.
@@ -186,18 +186,34 @@ namespace PhosphorDisplay.Widget
                                 {
                                     if (dx > 0)
                                     {
+                                        if (dx > x) dx = x;
+
                                         for (var xInterpolated = 0; xInterpolated < dx; xInterpolated++)
                                         {
                                             var yInterpolated = y - dy * xInterpolated / dx;
-                                            intensity[ch][x - xInterpolated][yInterpolated]++;
+                                            try
+                                            {
+                                                intensity[ch][x - xInterpolated][yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
                                         }
                                     }
                                     else
                                     {
+                                        if (-dx > x) dx = -x;
+
                                         for (var xInterpolated = 0; xInterpolated < -dx; xInterpolated++)
                                         {
                                             var yInterpolated = y + dy * xInterpolated / dx;
+                                            try
+                                            {
                                             intensity[ch][x - xInterpolated][yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
                                         }
                                     }
                                 }
@@ -353,7 +369,7 @@ namespace PhosphorDisplay.Widget
             renderTime += (float)sw.ElapsedMilliseconds;
 
             var dt = DateTime.Now.Subtract(lastWfmsMeasurement);
-            if (dt.TotalMilliseconds > 500 && waveformsCount > 10)
+            if (dt.TotalMilliseconds > 500 && waveformsCount > 10 && myWaveforms.Any())
             {
                 var wfms = waveformsCount / (dt.TotalMilliseconds / 1000.0f);
                 lastMeasurement = wfms.ToString("0000.0 wfms") + " [" + renderTime + "/" + dt.TotalMilliseconds.ToString("000") + "ms] [" + Math.Round(myWaveforms[0].Samples * wfms) + "sps]";
