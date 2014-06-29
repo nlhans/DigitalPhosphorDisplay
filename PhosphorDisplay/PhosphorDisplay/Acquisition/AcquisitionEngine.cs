@@ -101,7 +101,7 @@ namespace PhosphorDisplay.Acquisition
         void ProcessWaveform(DataPacket data)
         {
             var divs = 5;
-            var minSamplesPerDiv = 1;
+            var minSamplesPerDiv = 2;
             var minAcqLength = minSamplesPerDiv * divs + 1;
 
             AcquisitionLength = 1+(int)(AcquisitionTime*Source.SampleRate);
@@ -116,7 +116,7 @@ namespace PhosphorDisplay.Acquisition
             {
                 samplesOverflowSink.AddRange(data.Samples);
 
-                var pretriggerSampleDepth = (int) Source.SampleRate;
+                var pretriggerSampleDepth = (int) Math.Max(2*AcquisitionLength, Source.SampleRate);
 
                 if (samplesOverflowSink.Count > pretriggerSampleDepth)
                 {
@@ -162,7 +162,7 @@ namespace PhosphorDisplay.Acquisition
 
                     FireTriggeredWaveform(waveform);
 
-                    var step = (waveformStart - walkingOffset) + AcquisitionLength;
+                    var step = (waveformStart - walkingOffset) + AcquisitionLength-1;
                     if (step < minAcqLength)
                     {
                         step = minAcqLength;

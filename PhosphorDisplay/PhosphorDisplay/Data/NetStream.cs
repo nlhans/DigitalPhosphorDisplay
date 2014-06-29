@@ -117,7 +117,7 @@ namespace PhosphorDisplay.Data
                 if (settings[4] == 1)
                     SampleRate = 262000 / (float)Math.Pow(2, settings[12 + 4]);
                 else
-                    SampleRate = 4000000;
+                    SampleRate = 900000;
 
                 SendCommand(PaCommand.SET_STREAM_SETTINGS, settings);
 
@@ -191,18 +191,36 @@ namespace PhosphorDisplay.Data
             }
         }
 
+        private ulong lastPacketId = 0;
         public void processData()
         {
+            var notNextId = false;
             byte[] packet;
             while (netProcesser != null && netProcesser.IsAlive)
             {
-                while (bufferWaiting == 0) Thread.Sleep(1);
+                while (bufferWaiting == 0) Thread.Sleep(100);
                 lock (buffer)
                 {
-                    packet = buffer[0];
+                    if (buffer.Any(x => BitConverter.ToUInt64(x, 16) == lastPacketId + 1))
+                    {
+                        notNextId = false;
+                        packet = buffer.FirstOrDefault(x => BitConverter.ToUInt64(x, 16) == lastPacketId + 1);
+                        buffer.Remove(packet);
+                    }
+                    else
+                    {
+                        notNextId = true;
+                        packet = buffer.OrderBy(x => BitConverter.ToUInt64(x, 16)).FirstOrDefault();
+                        buffer.Remove(packet);
+                    }
 
-                    buffer.RemoveAt(0);
                     bufferWaiting--;
+                    if (buffer.Count>100)
+                    {
+                        bufferWaiting = 0;
+                        buffer.Clear();
+                        continue;
+                    }
                     if (packet == null) continue;
                 }
 
@@ -217,6 +235,16 @@ namespace PhosphorDisplay.Data
 
                 if (pkgType == PaCommand.STREAM_DATA)
                 {
+
+                    var expectedPacketId = lastPacketId + 1;
+                    var packetId = BitConverter.ToUInt64(header, 16);
+
+                    if (expectedPacketId != packetId)
+                    {
+                        //Debug.WriteLine("UDP traffic messed up order.." + ((notNextId) ? "as expected" : " WIERD!"));
+                    }
+                    lastPacketId = packetId;
+
                     // Process all of them
                     ProcessSamples(payload);
                 }

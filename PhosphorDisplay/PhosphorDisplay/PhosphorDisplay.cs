@@ -29,7 +29,7 @@ namespace PhosphorDisplay
         {
             InitializeComponent();
 
-            acqEngine = new AcquisitionEngine(new ArtificialStream());
+            acqEngine = new AcquisitionEngine(new NetStream());
             acqEngine.AcquisitionTime = 0.15f / 1000;
             acqEngine.PretriggerTime = 0.0f / 1000;
 
@@ -82,7 +82,7 @@ namespace PhosphorDisplay
                 }
             };
             
-            t.Interval = 40; // 25 fps
+            t.Interval = 10; // 25 fps
             t.Start();
 
             acqEngine.Source.HighresVoltage += voltage =>
