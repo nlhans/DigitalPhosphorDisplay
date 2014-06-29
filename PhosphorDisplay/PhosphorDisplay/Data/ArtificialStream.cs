@@ -74,8 +74,8 @@ namespace PhosphorDisplay.Data
         public int freq = 2500;
         private void GenerateDataElapse(object sender, EventArgs eventArgs)
         {
-            freq = 10000;
-            samplesPerSecond = 5000000;
+            freq = 500000;
+            samplesPerSecond = 8000000;
             var r = new Random();
             int generatingSamples = samplesPerSecond / 100;
 

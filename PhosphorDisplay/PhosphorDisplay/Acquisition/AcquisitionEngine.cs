@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -100,10 +101,13 @@ namespace PhosphorDisplay.Acquisition
         void ProcessWaveform(DataPacket data)
         {
             var divs = 5;
-            var minAcqLength = 4*divs + 1;
+            var minSamplesPerDiv = 1;
+            var minAcqLength = minSamplesPerDiv * divs + 1;
 
             AcquisitionLength = 1+(int)(AcquisitionTime*Source.SampleRate);
             if (AcquisitionLength < minAcqLength) AcquisitionLength = minAcqLength;
+            if ((AcquisitionLength - 1) % (minSamplesPerDiv * divs) != 0)
+                AcquisitionLength = 1 + minSamplesPerDiv * divs * ((int)(1 + (AcquisitionLength - 1) / minSamplesPerDiv / divs));
 
             Pretrigger = (int) (PretriggerTime*Source.SampleRate) + AcquisitionLength / 2;
 
@@ -116,6 +120,7 @@ namespace PhosphorDisplay.Acquisition
 
                 if (samplesOverflowSink.Count > pretriggerSampleDepth)
                 {
+                    Debug.WriteLine("Dumping samples ("+samplesOverflowSink.Count + " / " + pretriggerSampleDepth);
                     samplesOverflowSink.RemoveRange(0, samplesOverflowSink.Count - pretriggerSampleDepth);
                 }
 
