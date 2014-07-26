@@ -179,14 +179,25 @@ namespace PhosphorDisplay
         }
         private void btSendCfg_Click(object sender, EventArgs e)
         {
-            lbAmpPerDiv.ForeColor = Color.White;
+            try
+            {
+                var osrRatioStr = cbAdcOversample.SelectedItem.ToString();
+                var osrRatio = int.Parse(osrRatioStr.Substring(0, osrRatioStr.Length - 1));
 
-            NetStreamConfiguration cfg = new NetStreamConfiguration();
-            cfg.AfeGain = (int)Math.Pow(10, cbGain.SelectedIndex);
-            cfg.AdcSpeed = cbAdcSpeed.SelectedIndex;
-            cfg.UseFastAdc = cbAdcType.SelectedIndex == 0;
+                lbAmpPerDiv.ForeColor = Color.White;
 
-            acq.Source.Configure(cfg);
+                NetStreamConfiguration cfg = new NetStreamConfiguration();
+                cfg.OversampleRatio = osrRatio;
+                cfg.AfeGain = (int) Math.Pow(10, cbGain.SelectedIndex);
+                cfg.AdcSpeed = cbAdcSpeed.SelectedIndex;
+                cfg.UseFastAdc = cbAdcType.SelectedIndex == 0;
+
+                acq.Source.Configure(cfg);
+            }
+            catch(Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
     }
 }

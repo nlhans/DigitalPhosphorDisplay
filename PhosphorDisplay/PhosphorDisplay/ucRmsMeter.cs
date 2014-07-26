@@ -76,23 +76,23 @@ namespace PhosphorDisplay
         {
             if (Math.Abs(v) < 1.0 / 1000)
             {
-                return ((v >= 0) ? " " : "") + (v * 1000000).ToString("000.000 ") + "µ" + appendix;
+                return ((v >= 0) ? " " : "") + (v * 1000000).ToString("000.00 ") + "µ" + appendix;
             }
             else if (Math.Abs(v) < 1.0)
             {
-                return ((v >= 0) ? " " : "") + (v * 1000).ToString("000.00000") + "m" + appendix;
+                return ((v >= 0) ? " " : "") + (v * 1000).ToString("000.0000") + "m" + appendix;
             }
             else if (Math.Abs(v) < 1000)
             {
-                return ((v >= 0) ? " " : "") + v.ToString("000.00000") + appendix;
+                return ((v >= 0) ? " " : "") + v.ToString("000.0000") + appendix;
             }
             else if (Math.Abs(v) < 1000000)
             {
-                return ((v >= 0) ? " " : "") + (v / 1000).ToString("000.000") + "k" + appendix;
+                return ((v >= 0) ? " " : "") + (v / 1000).ToString("000.00") + "k" + appendix;
             }
             else
             {
-                return ((v >= 0) ? " " : "") + (v / 1000000).ToString("000.000") + "M" + appendix;
+                return ((v >= 0) ? " " : "") + (v / 1000000).ToString("000.00") + "M" + appendix;
             }
         }
     }

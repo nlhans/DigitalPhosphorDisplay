@@ -44,11 +44,12 @@ namespace PhosphorDisplay.Triggers
         public string Name { get { return "Edge"; } }
         public TriggerInfo IsTriggered(float[] samples, int start)
         {
-            TriggerLevelL = 5.5f / 1000;
-            TriggerLevelH = 6.5f / 1000;
+            TriggerLevelL = 2000.6f / 1000000;
+            TriggerLevelH = 3000.8f / 1000000;
 
-            RisingEdge = false;
-            FallingEdge = true;
+            HistoryEffect = 6;
+            RisingEdge = true;
+            FallingEdge = false;
             //return new TriggerInfo(true, start+1);
 
             if (start > samples.Length - 1) return new TriggerInfo(false, -1);

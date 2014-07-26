@@ -16,6 +16,7 @@ namespace PhosphorDisplay.Data
         private float LastHighresVoltage=0.0f;
         private bool AdcMcp = false;
         private int Gain = 0;
+        private int oversampleRatio = 1;
         
         private DateTime StreamStoppedAt = DateTime.Now;
 
@@ -113,11 +114,14 @@ namespace PhosphorDisplay.Data
 
                 AdcMcp = settings[4] == 1;
                 Gain = (int)Math.Pow(10, settings[12 + 2]);
+                oversampleRatio = Math.Max(1,cfg.OversampleRatio);
 
                 if (settings[4] == 1)
-                    SampleRate = 262000 / (float)Math.Pow(2, settings[12 + 4]);
+                    SampleRate = 130211*2 / (float)Math.Pow(2, settings[12 + 4]);
                 else
-                    SampleRate = 900000;
+                    SampleRate = 1875026;
+
+                SampleRate /= oversampleRatio;
 
                 SendCommand(PaCommand.SET_STREAM_SETTINGS, settings);
 
@@ -215,7 +219,7 @@ namespace PhosphorDisplay.Data
                     }
 
                     bufferWaiting--;
-                    if (buffer.Count>100)
+                    if (buffer.Count>1000)
                     {
                         bufferWaiting = 0;
                         buffer.Clear();
@@ -241,7 +245,7 @@ namespace PhosphorDisplay.Data
 
                     if (expectedPacketId != packetId)
                     {
-                        //Debug.WriteLine("UDP traffic messed up order.." + ((notNextId) ? "as expected" : " WIERD!"));
+                        Debug.WriteLine("UDP traffic messed up order.." + ((notNextId) ? "as expected" : " WIERD!"));
                     }
                     lastPacketId = packetId;
 
@@ -262,18 +266,48 @@ namespace PhosphorDisplay.Data
 
         }
 
-        private int err = 0;
-
         public void ProcessSamples(byte[] packet)
         {
-            float timeInterval = 1.0f / SampleRate;
-            float[] samples = new float[packet.Length/2];
+            float timeInterval = 1.0f/SampleRate;
 
-            for (int k = 0; k < packet.Length / 2; k++)
+            int historySize = 8;
+            int samplesInPacket = (packet.Length - historySize * 2) / 2;
+            int samplesOffset = historySize * 2;
+
+            float[] samples = new float[samplesInPacket];
+            Dictionary<int, int> ranges = new Dictionary<int, int>();
+            ranges.Add(0, Gain);
+
+            for (int i = 0; i < historySize; i++)
             {
-                short sh = BitConverter.ToInt16(packet, k*2);
+                int d = BitConverter.ToInt16(packet, i * 2);
+
+                if (d == 0) break;
+
+                int r = d >> 12;
+                int s = (d & 0xFFF);
+                if (s == 0xFFF)
+                {
+                    ranges[0] =(int) Math.Pow(10, r);
+                }
+                else
+                {
+                    ranges.Add(s, r);
+                }
+            }
+
+            for (int k = 0; k < samplesInPacket; k++)
+            {
+                short sh = BitConverter.ToInt16(packet, samplesOffset+ k*2);
                 float currentValue = sh/1.0f;
-                
+
+                if (ranges.Keys.Any(x=> x == k))
+                {
+                    Gain = ranges.FirstOrDefault(x => x.Key == k).Value;
+                    if (k != 0)
+                    Debug.WriteLine("Switched to gain range" + Gain);
+                }
+
                 if (AdcMcp)
                 {
                     currentValue = currentValue/32768.0f/1/1.5f*1.2f*23;
@@ -281,12 +315,32 @@ namespace PhosphorDisplay.Data
 
                     currentValue /= Gain; // gain
 
-                    var voltageCorrection = LastHighresVoltage / 15220.588235294117647058823529412f;
-                    currentValue -=voltageCorrection;
+                    var voltageCorrection = LastHighresVoltage/15220.588235294117647058823529412f;
+                    currentValue -= voltageCorrection;
 
                     currentValue *= 1000000;
                     if (Gain == 10)
-                        currentValue -= 148.3f;
+                    {
+                        currentValue -= 12.88f;
+
+                        var adc = k%4;
+                        switch (adc)
+                        {
+                            case 0:
+                                currentValue += 8.57f;
+                                break;
+                            case 1:
+                                currentValue += 19.7f;
+                                break;
+                            case 2:
+                                currentValue -= 61.65f;
+                                break;
+                            case 3:
+                                currentValue += 5.47f;
+                                break;
+                        }
+                    }
+
                     if (Gain == 1)
                         currentValue -= 1300;
                     if (Gain == 1000)
@@ -294,16 +348,16 @@ namespace PhosphorDisplay.Data
                         currentValue -= 3.6f;
 
                         var adc = k%4;
-                        switch(adc)
+                        switch (adc)
                         {
                             case 0:
-                                currentValue += 0.18f;
+                                currentValue -= 0.18f;
                                 break;
                             case 1:
                                 currentValue += 0.12f;
                                 break;
                             case 2:
-                                currentValue += 0.37f;
+                                currentValue -= 0.37f;
                                 break;
                             case 3:
                                 currentValue += 0.34f;
@@ -338,15 +392,32 @@ namespace PhosphorDisplay.Data
                     if (Gain == 10)
                         currentValue -= 0.0013f;
                 }
-                if (currentValue < -20.0f/1000 || (currentValue > 20.0f / 1000 && currentValue < 100.0f/1000))
-                {
-                    err++;
-                }
                 samples[k] = currentValue;
             }
 
-            var dpk = new DataPacket(samples, DataType.DutCurrent, (float)timeInterval);
+            DataPacket dpk;
+            var osrRatio = Math.Min(oversampleRatio, samples.Length);
+            if (osrRatio == 1)
+            {
+                dpk = new DataPacket(samples, DataType.DutCurrent, (float) timeInterval);
+            }
+            else
+            {
+                float[] oversampledSamples = new float[samples.Length/osrRatio];
+                for (int k = 0; k < oversampledSamples.Length; k++)
+                {
+                    var v = 0.0f;
+                    for (int s = 0; s < osrRatio; s++)
+                    {
+                        v += samples[k*osrRatio + s];
+                    }
+                    v /= osrRatio;
 
+                    oversampledSamples[k] = v;
+                }
+
+                dpk = new DataPacket(oversampledSamples, DataType.DutCurrent, (float) timeInterval);
+            }
             if (Data != null)
                 Data(dpk);
 

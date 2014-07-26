@@ -38,11 +38,12 @@
             this.tbSecPerDiv = new System.Windows.Forms.TrackBar();
             this.tbAmpPerDiv = new System.Windows.Forms.TrackBar();
             this.tabADC = new System.Windows.Forms.TabPage();
-            this.btSendCfg = new System.Windows.Forms.Button();
-            this.cbAdcType = new System.Windows.Forms.ComboBox();
-            this.cbGain = new System.Windows.Forms.ComboBox();
-            this.lbSuggestedGain = new System.Windows.Forms.Label();
+            this.cbAdcOversample = new System.Windows.Forms.ComboBox();
             this.cbAdcSpeed = new System.Windows.Forms.ComboBox();
+            this.lbSuggestedGain = new System.Windows.Forms.Label();
+            this.cbGain = new System.Windows.Forms.ComboBox();
+            this.cbAdcType = new System.Windows.Forms.ComboBox();
+            this.btSendCfg = new System.Windows.Forms.Button();
             this.tabs.SuspendLayout();
             this.tbScope.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDivScnd)).BeginInit();
@@ -145,6 +146,7 @@
             // tabADC
             // 
             this.tabADC.BackColor = System.Drawing.Color.Black;
+            this.tabADC.Controls.Add(this.cbAdcOversample);
             this.tabADC.Controls.Add(this.cbAdcSpeed);
             this.tabADC.Controls.Add(this.lbSuggestedGain);
             this.tabADC.Controls.Add(this.cbGain);
@@ -158,53 +160,25 @@
             this.tabADC.TabIndex = 1;
             this.tabADC.Text = "A/D";
             // 
-            // btSendCfg
+            // cbAdcOversample
             // 
-            this.btSendCfg.ForeColor = System.Drawing.Color.Black;
-            this.btSendCfg.Location = new System.Drawing.Point(52, 100);
-            this.btSendCfg.Name = "btSendCfg";
-            this.btSendCfg.Size = new System.Drawing.Size(75, 23);
-            this.btSendCfg.TabIndex = 15;
-            this.btSendCfg.Text = "Send Cfg";
-            this.btSendCfg.UseVisualStyleBackColor = true;
-            this.btSendCfg.Click += new System.EventHandler(this.btSendCfg_Click);
-            // 
-            // cbAdcType
-            // 
-            this.cbAdcType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cbAdcType.FormattingEnabled = true;
-            this.cbAdcType.ImeMode = System.Windows.Forms.ImeMode.NoControl;
-            this.cbAdcType.Items.AddRange(new object[] {
-            "STM32F4",
-            "MCP3911"});
-            this.cbAdcType.Location = new System.Drawing.Point(6, 6);
-            this.cbAdcType.Name = "cbAdcType";
-            this.cbAdcType.Size = new System.Drawing.Size(121, 21);
-            this.cbAdcType.TabIndex = 16;
-            // 
-            // cbGain
-            // 
-            this.cbGain.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this.cbGain.FormattingEnabled = true;
-            this.cbGain.ImeMode = System.Windows.Forms.ImeMode.NoControl;
-            this.cbGain.Items.AddRange(new object[] {
-            "1",
-            "10",
-            "100",
-            "1000"});
-            this.cbGain.Location = new System.Drawing.Point(6, 33);
-            this.cbGain.Name = "cbGain";
-            this.cbGain.Size = new System.Drawing.Size(121, 21);
-            this.cbGain.TabIndex = 17;
-            // 
-            // lbSuggestedGain
-            // 
-            this.lbSuggestedGain.AutoSize = true;
-            this.lbSuggestedGain.Location = new System.Drawing.Point(6, 57);
-            this.lbSuggestedGain.Name = "lbSuggestedGain";
-            this.lbSuggestedGain.Size = new System.Drawing.Size(35, 13);
-            this.lbSuggestedGain.TabIndex = 18;
-            this.lbSuggestedGain.Text = "label1";
+            this.cbAdcOversample.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbAdcOversample.FormattingEnabled = true;
+            this.cbAdcOversample.Items.AddRange(new object[] {
+            "1x",
+            "2x",
+            "4x",
+            "8x",
+            "16x",
+            "32x",
+            "64x",
+            "128x",
+            "256x",
+            "512x"});
+            this.cbAdcOversample.Location = new System.Drawing.Point(6, 100);
+            this.cbAdcOversample.Name = "cbAdcOversample";
+            this.cbAdcOversample.Size = new System.Drawing.Size(121, 21);
+            this.cbAdcOversample.TabIndex = 20;
             // 
             // cbAdcSpeed
             // 
@@ -222,6 +196,54 @@
             this.cbAdcSpeed.Name = "cbAdcSpeed";
             this.cbAdcSpeed.Size = new System.Drawing.Size(121, 21);
             this.cbAdcSpeed.TabIndex = 19;
+            // 
+            // lbSuggestedGain
+            // 
+            this.lbSuggestedGain.AutoSize = true;
+            this.lbSuggestedGain.Location = new System.Drawing.Point(6, 57);
+            this.lbSuggestedGain.Name = "lbSuggestedGain";
+            this.lbSuggestedGain.Size = new System.Drawing.Size(35, 13);
+            this.lbSuggestedGain.TabIndex = 18;
+            this.lbSuggestedGain.Text = "label1";
+            // 
+            // cbGain
+            // 
+            this.cbGain.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbGain.FormattingEnabled = true;
+            this.cbGain.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.cbGain.Items.AddRange(new object[] {
+            "1",
+            "10",
+            "100",
+            "1000"});
+            this.cbGain.Location = new System.Drawing.Point(6, 33);
+            this.cbGain.Name = "cbGain";
+            this.cbGain.Size = new System.Drawing.Size(121, 21);
+            this.cbGain.TabIndex = 17;
+            // 
+            // cbAdcType
+            // 
+            this.cbAdcType.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbAdcType.FormattingEnabled = true;
+            this.cbAdcType.ImeMode = System.Windows.Forms.ImeMode.NoControl;
+            this.cbAdcType.Items.AddRange(new object[] {
+            "STM32F4",
+            "MCP3911"});
+            this.cbAdcType.Location = new System.Drawing.Point(6, 6);
+            this.cbAdcType.Name = "cbAdcType";
+            this.cbAdcType.Size = new System.Drawing.Size(121, 21);
+            this.cbAdcType.TabIndex = 16;
+            // 
+            // btSendCfg
+            // 
+            this.btSendCfg.ForeColor = System.Drawing.Color.Black;
+            this.btSendCfg.Location = new System.Drawing.Point(52, 127);
+            this.btSendCfg.Name = "btSendCfg";
+            this.btSendCfg.Size = new System.Drawing.Size(75, 23);
+            this.btSendCfg.TabIndex = 15;
+            this.btSendCfg.Text = "Send Cfg";
+            this.btSendCfg.UseVisualStyleBackColor = true;
+            this.btSendCfg.Click += new System.EventHandler(this.btSendCfg_Click);
             // 
             // ucScopeControls
             // 
@@ -260,6 +282,7 @@
         private System.Windows.Forms.ComboBox cbGain;
         private System.Windows.Forms.ComboBox cbAdcType;
         private System.Windows.Forms.Button btSendCfg;
+        private System.Windows.Forms.ComboBox cbAdcOversample;
 
     }
 }
