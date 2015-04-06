@@ -20,6 +20,9 @@ namespace PhosphorDisplay
         public float minCurrent = 0.0f;
         public float maxCurrent = 0.0f;
 
+        public event EventHandler Zero;
+        public event EventHandler ClearZero;
+
         public ucRmsMeter()
         {
             InitializeComponent();
@@ -27,6 +30,7 @@ namespace PhosphorDisplay
             DoubleClick += ucRmsMeter_DoubleClick;
         }
 
+        
         void ucRmsMeter_DoubleClick(object sender, EventArgs e)
         {
             displayRms = !displayRms;
@@ -68,6 +72,18 @@ namespace PhosphorDisplay
             g.DrawString(Units.ToUnit(maxCurrent, "A"), fontBig, Brushes.Turquoise, 8, 145);
 
         }
+
+        private void btZero_Click(object sender, EventArgs e)
+        {
+            if (Zero != null)
+                Zero(sender, e);
+        }
+
+        private void btClear_Click(object sender, EventArgs e)
+        {
+            if (ClearZero != null)
+                ClearZero(sender, e);
+        }
     }
 
     public static class Units
@@ -76,7 +92,7 @@ namespace PhosphorDisplay
         {
             if (Math.Abs(v) < 1.0 / 1000)
             {
-                return ((v >= 0) ? " " : "") + (v * 1000000).ToString("000.00 ") + "µ" + appendix;
+                return ((v >= 0) ? " " : "") + (v * 1000000).ToString("000.000 ") + "µ" + appendix;
             }
             else if (Math.Abs(v) < 1.0)
             {
@@ -84,15 +100,15 @@ namespace PhosphorDisplay
             }
             else if (Math.Abs(v) < 1000)
             {
-                return ((v >= 0) ? " " : "") + v.ToString("000.0000") + appendix;
+                return ((v >= 0) ? " " : "") + v.ToString("000.00000") + appendix;
             }
             else if (Math.Abs(v) < 1000000)
             {
-                return ((v >= 0) ? " " : "") + (v / 1000).ToString("000.00") + "k" + appendix;
+                return ((v >= 0) ? " " : "") + (v / 1000).ToString("000.0000") + "k" + appendix;
             }
             else
             {
-                return ((v >= 0) ? " " : "") + (v / 1000000).ToString("000.00") + "M" + appendix;
+                return ((v >= 0) ? " " : "") + (v / 1000000).ToString("000.000") + "M" + appendix;
             }
         }
     }

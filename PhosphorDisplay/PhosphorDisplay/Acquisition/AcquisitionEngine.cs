@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using MathNet.Numerics.IntegralTransforms;
 using PhosphorDisplay.Data;
 using PhosphorDisplay.Triggers;
 
@@ -30,6 +32,7 @@ namespace PhosphorDisplay.Acquisition
         public double AcquisitionTime { get; set; }
         public double PretriggerTime { get; set; }
 
+        public bool FFT { get; set; }
 
         public AcquisitionEngine(IDataSource source)
         {
@@ -104,11 +107,17 @@ namespace PhosphorDisplay.Acquisition
             var minSamplesPerDiv = 2;
             var minAcqLength = minSamplesPerDiv * divs + 1;
 
-            AcquisitionLength = 1+(int)(AcquisitionTime*Source.SampleRate);
+            AcquisitionLength = 1 + (int)(AcquisitionTime * Source.SampleRate);
             if (AcquisitionLength < minAcqLength) AcquisitionLength = minAcqLength;
             if ((AcquisitionLength - 1) % (minSamplesPerDiv * divs) != 0)
                 AcquisitionLength = 1 + minSamplesPerDiv * divs * ((int)(1 + (AcquisitionLength - 1) / minSamplesPerDiv / divs));
 
+            if (FFT)
+            {
+                AcquisitionLength--;
+                var exp = Math.Ceiling(Math.Log(AcquisitionLength, 2));
+                AcquisitionLength = (int)Math.Pow(2, exp);
+            }
             Pretrigger = (int) (PretriggerTime*Source.SampleRate) + AcquisitionLength / 2;
 
 
@@ -116,11 +125,11 @@ namespace PhosphorDisplay.Acquisition
             {
                 samplesOverflowSink.AddRange(data.Samples);
 
-                var pretriggerSampleDepth = (int) Math.Max(2*AcquisitionLength, Source.SampleRate);
+                var pretriggerSampleDepth = (int)Math.Max(2 * AcquisitionLength, Source.SampleRate * LongAcquisitionTime);
 
                 if (samplesOverflowSink.Count > pretriggerSampleDepth)
                 {
-                    Debug.WriteLine("Dumping samples ("+samplesOverflowSink.Count + " / " + pretriggerSampleDepth);
+                    //Debug.WriteLine("Dumping samples ("+samplesOverflowSink.Count + " / " + pretriggerSampleDepth);
                     samplesOverflowSink.RemoveRange(0, samplesOverflowSink.Count - pretriggerSampleDepth);
                 }
 
@@ -135,7 +144,7 @@ namespace PhosphorDisplay.Acquisition
                     triggerInfo = Trigger.IsTriggered(samplesAsArray, walkingOffset);
 
                     // Skip the waveform (if we keep trigger) till we satisfy the pretrigger requirement.
-                    while (triggerInfo.Triggered && triggerInfo.TriggerPoint-walkingOffset < Pretrigger)
+                    while (!triggerInfo.Triggered && triggerInfo.TriggerPoint-walkingOffset < Pretrigger && triggerInfo.TriggerPoint != -1)
                     {
                         triggerInfo = Trigger.IsTriggered(samplesAsArray, triggerInfo.TriggerPoint);
                     }
@@ -144,6 +153,7 @@ namespace PhosphorDisplay.Acquisition
 
                     // We take the waveform from the buffer at the triggerpoint, but also subtracting the pre-trigger sample depth.
                     var waveformStart = triggerInfo.TriggerPoint - Pretrigger;
+                    if (waveformStart < 0) waveformStart = 0;
 
                     if (waveformStart + AcquisitionLength >= samplesTotal) break;
 
@@ -153,13 +163,16 @@ namespace PhosphorDisplay.Acquisition
                     //var waveformSamples = samplesOverflowSink.Skip(waveformStart).Take(AcquisitionLength).ToArray();
                     if (waveformSamples.Length != AcquisitionLength) break;
                     var waveform = new Waveform(1, AcquisitionLength);
-                    var timestamp = -Pretrigger*data.TimeInterval;
+                    waveform.TriggerTime = -triggerInfo.TriggerDuty*data.TimeInterval;
+                    var timestamp = -(Pretrigger)*data.TimeInterval;
                     foreach(var s in waveformSamples)
                     {
                         timestamp += data.TimeInterval;
                         waveform.Store(timestamp, new float[1] {s});
                     }
 
+                    if (FFT)
+                        waveform = ProcessFFT(waveform);
                     FireTriggeredWaveform(waveform);
 
                     var step = (waveformStart - walkingOffset) + AcquisitionLength-1;
@@ -186,9 +199,62 @@ namespace PhosphorDisplay.Acquisition
 
         }
 
+        public Complex[] Hamming(Complex[] iwv)
+        {
+            int N = iwv.Length;
+
+            // iwv[i].Re = real number (raw wave data) 
+
+            // iwv[i].Im = imaginary number (0 since it hasn't gone through FFT yet)
+
+            for (int n = 0; n < N; n++)
+                iwv[n] = new Complex(iwv[n].Real *  0.54f - 0.46f * (float)Math.Cos((2 * Math.PI * n) / (N - 1)), 0);
+
+            return iwv;
+        }
+        
+        public Complex[] Hann(Complex[] iwv)
+        {
+            int N = iwv.Length;
+
+            for (int n = 0; n < N; n++)
+                iwv[n] = new Complex(iwv[n].Real * 0.5f*(float) Math.Cos((2*Math.PI*n)/(N - 1)), 0);
+
+            return iwv;
+        }
+
+        private Waveform ProcessFFT(Waveform w)
+        {
+            var FFTSize = AcquisitionLength/2;
+            var complexInSamples = new Complex[FFTSize * 2];
+
+            for (int i = 0; i < FFTSize * 2; i++)
+                complexInSamples[i] = new Complex(w.Data[0][i] / Source.MaximumAmplitude/5, 0.0);
+
+            complexInSamples = Hann(complexInSamples);
+
+            Transform.FourierForward(complexInSamples);
+
+            // Create a new waveform
+            var fftWaveform = new Waveform(1, FFTSize);
+            for (int k = 0; k < FFTSize; k++)
+            {
+                var ampl = 20*Math.Log10(complexInSamples[k].Magnitude);
+                var freq = k*Source.SampleRate/FFTSize/2;
+                fftWaveform.Store(freq, new float[1] { (float)ampl });
+            }
+
+            return fftWaveform;
+        }
+
         public void SetTrigger(ITrigger tr)
         {
             Trigger = tr;
+        }
+
+        public void Stop()
+        {
+            Source.Stop();
         }
     }
 }

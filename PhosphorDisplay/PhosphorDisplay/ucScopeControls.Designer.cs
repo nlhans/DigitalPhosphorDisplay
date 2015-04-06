@@ -30,6 +30,11 @@
         {
             this.tabs = new System.Windows.Forms.TabControl();
             this.tbScope = new System.Windows.Forms.TabPage();
+            this.lbBrightness = new System.Windows.Forms.Label();
+            this.lbContrast = new System.Windows.Forms.Label();
+            this.tbMinBrightness = new System.Windows.Forms.TrackBar();
+            this.tbContrast = new System.Windows.Forms.TrackBar();
+            this.cbFFT = new System.Windows.Forms.CheckBox();
             this.lbSecPerDivScnd = new System.Windows.Forms.Label();
             this.tbSecPerDivScnd = new System.Windows.Forms.TrackBar();
             this.cbTrigger = new System.Windows.Forms.ComboBox();
@@ -46,6 +51,8 @@
             this.btSendCfg = new System.Windows.Forms.Button();
             this.tabs.SuspendLayout();
             this.tbScope.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tbMinBrightness)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbContrast)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDivScnd)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDiv)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbAmpPerDiv)).BeginInit();
@@ -67,6 +74,11 @@
             // tbScope
             // 
             this.tbScope.BackColor = System.Drawing.Color.Black;
+            this.tbScope.Controls.Add(this.lbBrightness);
+            this.tbScope.Controls.Add(this.lbContrast);
+            this.tbScope.Controls.Add(this.tbMinBrightness);
+            this.tbScope.Controls.Add(this.tbContrast);
+            this.tbScope.Controls.Add(this.cbFFT);
             this.tbScope.Controls.Add(this.lbSecPerDivScnd);
             this.tbScope.Controls.Add(this.tbSecPerDivScnd);
             this.tbScope.Controls.Add(this.cbTrigger);
@@ -81,6 +93,62 @@
             this.tbScope.Size = new System.Drawing.Size(184, 371);
             this.tbScope.TabIndex = 0;
             this.tbScope.Text = "Scope";
+            // 
+            // lbBrightness
+            // 
+            this.lbBrightness.AutoSize = true;
+            this.lbBrightness.ForeColor = System.Drawing.Color.Transparent;
+            this.lbBrightness.Location = new System.Drawing.Point(74, 292);
+            this.lbBrightness.Name = "lbBrightness";
+            this.lbBrightness.Size = new System.Drawing.Size(35, 13);
+            this.lbBrightness.TabIndex = 18;
+            this.lbBrightness.Text = "label1";
+            this.lbBrightness.DoubleClick += new System.EventHandler(this.lbBrightness_DoubleClick);
+            // 
+            // lbContrast
+            // 
+            this.lbContrast.AutoSize = true;
+            this.lbContrast.ForeColor = System.Drawing.Color.Transparent;
+            this.lbContrast.Location = new System.Drawing.Point(74, 241);
+            this.lbContrast.Name = "lbContrast";
+            this.lbContrast.Size = new System.Drawing.Size(35, 13);
+            this.lbContrast.TabIndex = 17;
+            this.lbContrast.Text = "label1";
+            this.lbContrast.DoubleClick += new System.EventHandler(this.lbContrast_DoubleClick);
+            // 
+            // tbMinBrightness
+            // 
+            this.tbMinBrightness.Location = new System.Drawing.Point(6, 260);
+            this.tbMinBrightness.Maximum = 100;
+            this.tbMinBrightness.Minimum = -100;
+            this.tbMinBrightness.Name = "tbMinBrightness";
+            this.tbMinBrightness.Size = new System.Drawing.Size(165, 45);
+            this.tbMinBrightness.SmallChange = 2;
+            this.tbMinBrightness.TabIndex = 16;
+            this.tbMinBrightness.TickFrequency = 5;
+            this.tbMinBrightness.ValueChanged += new System.EventHandler(this.tbMinBrightness_ValueChanged);
+            // 
+            // tbContrast
+            // 
+            this.tbContrast.Location = new System.Drawing.Point(6, 209);
+            this.tbContrast.Maximum = 400;
+            this.tbContrast.Minimum = -400;
+            this.tbContrast.Name = "tbContrast";
+            this.tbContrast.Size = new System.Drawing.Size(165, 45);
+            this.tbContrast.TabIndex = 15;
+            this.tbContrast.TickFrequency = 25;
+            this.tbContrast.ValueChanged += new System.EventHandler(this.tbContrast_ValueChanged);
+            // 
+            // cbFFT
+            // 
+            this.cbFFT.AutoSize = true;
+            this.cbFFT.Location = new System.Drawing.Point(6, 186);
+            this.cbFFT.Name = "cbFFT";
+            this.cbFFT.Size = new System.Drawing.Size(45, 17);
+            this.cbFFT.TabIndex = 14;
+            this.cbFFT.Text = "FFT";
+            this.cbFFT.UseVisualStyleBackColor = true;
+            this.cbFFT.CheckedChanged += new System.EventHandler(this.cbFFT_CheckedChanged);
             // 
             // lbSecPerDivScnd
             // 
@@ -174,7 +242,14 @@
             "64x",
             "128x",
             "256x",
-            "512x"});
+            "512x",
+            "1024x",
+            "2048x",
+            "4096x",
+            "8192x",
+            "16384x",
+            "32768x",
+            "65536x"});
             this.cbAdcOversample.Location = new System.Drawing.Point(6, 100);
             this.cbAdcOversample.Name = "cbAdcOversample";
             this.cbAdcOversample.Size = new System.Drawing.Size(121, 21);
@@ -256,6 +331,8 @@
             this.tabs.ResumeLayout(false);
             this.tbScope.ResumeLayout(false);
             this.tbScope.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tbMinBrightness)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.tbContrast)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDivScnd)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDiv)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbAmpPerDiv)).EndInit();
@@ -283,6 +360,11 @@
         private System.Windows.Forms.ComboBox cbAdcType;
         private System.Windows.Forms.Button btSendCfg;
         private System.Windows.Forms.ComboBox cbAdcOversample;
+        private System.Windows.Forms.CheckBox cbFFT;
+        private System.Windows.Forms.Label lbBrightness;
+        private System.Windows.Forms.Label lbContrast;
+        private System.Windows.Forms.TrackBar tbMinBrightness;
+        private System.Windows.Forms.TrackBar tbContrast;
 
     }
 }

@@ -102,10 +102,16 @@ namespace PhosphorDisplay
             tbSecPerDivScnd_ValueChanged(null, new EventArgs());
             tbSecPerDiv_ValueChanged(null, new EventArgs());
             tbAmpPerDiv_ValueChanged(null, new EventArgs());
+            tbContrast_ValueChanged(null, new EventArgs());
+            tbMinBrightness_ValueChanged(null, new EventArgs());
 
             cbAdcSpeed.SelectedIndex = 0;
             cbAdcType.SelectedIndex = 1;
-            cbGain.SelectedIndex = 1;
+            cbGain.SelectedIndex = 3;
+            cbAdcOversample.SelectedIndex = 0;
+            tbContrast.Value = 100;
+            tbMinBrightness.Value = 0;
+
         }
         void cbTrigger_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -118,6 +124,7 @@ namespace PhosphorDisplay
                 acq.SetTrigger(trigger);
             }
         }
+
         private void tbSecPerDivScnd_ValueChanged(object sender, EventArgs e)
         {
             var ind = tbSecPerDivScnd.Value;
@@ -126,32 +133,54 @@ namespace PhosphorDisplay
             lbSecPerDivScnd.Text = Units.ToUnit(timestep, "s") + "";
 
             acq.LongAcquisitionTime = timestep;
-
-
-            displayLong.HorizontalScale = timestep;
+                displayLong.HorizontalScale = timestep;
         }
+
         private void tbSecPerDiv_ValueChanged(object sender, EventArgs e)
         {
             var ind = tbSecPerDiv.Value;
             var timestep = timeSteps[ind];
 
-            lbSecPerDiv.Text = Units.ToUnit(timestep, "s") + "/div";
 
-            acq.AcquisitionTime = timestep * displayTrigger.HorizontalDivisions * 2;
+            acq.AcquisitionTime = timestep*displayTrigger.HorizontalDivisions*2;
 
-            displayTrigger.HorizontalScale = timestep;
+            if (cbFFT.Checked)
+            {
+                displayTrigger.HorizontalScale = acq.Source.SampleRate/displayTrigger.HorizontalDivisions/4;
+                displayTrigger.HorizontalOffset = displayTrigger.HorizontalScale * displayTrigger.HorizontalDivisions;
+                lbSecPerDiv.Text = Units.ToUnit(displayTrigger.HorizontalScale, "Hz") + "/div";
+            }
+            else
+            {
+                displayTrigger.HorizontalScale = timestep;
+                displayTrigger.HorizontalOffset = 0;
+                lbSecPerDiv.Text = Units.ToUnit(timestep, "s") + "/div";
+            }
         }
+
         private int lastSugGain = 1;
         private void tbAmpPerDiv_ValueChanged(object sender, EventArgs e)
         {
             var ind = tbAmpPerDiv.Value;
             var currentstep = verticalSteps[ind];
 
-            lbAmpPerDiv.Text = Units.ToUnit(currentstep, "A") + "/div";
 
             displayLong.VerticalScale = new float[3] { currentstep, 1, 1 };
-            displayTrigger.VerticalScale = new float[3] { currentstep, 1, 1 };
 
+            if (cbFFT.Checked)
+            {
+                displayTrigger.lowContrast = true;
+                displayTrigger.VerticalScale = new float[3] {100*currentstep, 1, 1};
+                displayTrigger.VerticalOffset = new float[3] { 5, 0, 0 };
+                lbAmpPerDiv.Text = Units.ToUnit(displayTrigger.VerticalScale[0], "dB") + "/div";
+            }
+            else
+            {
+                displayTrigger.lowContrast = false;
+                displayTrigger.VerticalScale = new float[3] { currentstep, 1, 1 };
+                displayTrigger.VerticalOffset = new float[3] { 0, 0, 0 };
+                lbAmpPerDiv.Text = Units.ToUnit(currentstep, "A") + "/div";
+            }
             var scopeMaxAmplitude = displayTrigger.VerticalDivisions * currentstep;
             // Max amplitude per gain
             var R = 0.1;
@@ -198,6 +227,39 @@ namespace PhosphorDisplay
             {
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private void cbFFT_CheckedChanged(object sender, EventArgs e)
+        {
+            acq.FFT = cbFFT.Checked;
+            tbSecPerDiv_ValueChanged(sender, e);
+            tbAmpPerDiv_ValueChanged(sender, e);
+        }
+
+        private void tbContrast_ValueChanged(object sender, EventArgs e)
+        {
+            lbContrast.Text = "Contrast: " + tbContrast.Value + "%";
+
+            displayTrigger.DisplayContrast = tbContrast.Value;
+            displayLong.DisplayContrast = tbContrast.Value;
+        }
+
+        private void tbMinBrightness_ValueChanged(object sender, EventArgs e)
+        {
+            lbBrightness.Text = "Min. Brightness: " + tbMinBrightness.Value + "%";
+
+            displayTrigger.DisplayBrightness = tbMinBrightness.Value;
+            displayLong.DisplayBrightness = tbMinBrightness.Value;
+        }
+
+        private void lbBrightness_DoubleClick(object sender, EventArgs e)
+        {
+            tbMinBrightness.Value = 0;
+        }
+
+        private void lbContrast_DoubleClick(object sender, EventArgs e)
+        {
+            tbContrast.Value = 100;
         }
     }
 }

@@ -25,10 +25,16 @@ namespace PhosphorDisplay.Data
         #endif
         #region Implementation of IDataSource
         public float SampleRate { get { return samplesPerSecond; } }
+        public double MaximumAmplitude { get; set; }
         public event DataSourceEvent Data;
         public event HighresEvent HighresVoltage;
         public event EventHandler Connected;
         public event EventHandler Disconnected;
+        public void Zero(float zeroValue)
+        {
+            //
+        }
+
         public void Connect(object target)
         {
 #if __MonoCS__
@@ -42,6 +48,8 @@ namespace PhosphorDisplay.Data
             generateData.Tick += GenerateDataElapse;
             generateData.Start();
 #endif
+
+            MaximumAmplitude = 1;
 
             IsConnected = true;
             if (Connected != null)
@@ -68,37 +76,34 @@ namespace PhosphorDisplay.Data
         #endregion
         private int sampleCounter = 0;
         public int samplesPerSecond = 2500000;
-        private float accumulatedPhase = 0.0f;
+        private double accumulatedPhase = 0.0f;
         private float accumulatedAmplitudeModulation = 0.0f;
-        private float amModulation = 0.0f;
+        private double amModulation = 0.0f;
         public int freq = 2500;
         private void GenerateDataElapse(object sender, EventArgs eventArgs)
         {
-            freq = 100;
-            samplesPerSecond = 1000000;
+            freq = 125000;
+            samplesPerSecond = 125000*4;
             var r = new Random();
             int generatingSamples = samplesPerSecond / 100;
 
             float[] samples = new float[generatingSamples];
-            var timeInterval = 1.0f / samplesPerSecond;
+            var timeInterval = 1.0 / samplesPerSecond;
 
             for (int i = 0; i < generatingSamples; i++)
             {
                 var k = i + sampleCounter;
 
-                var t = timeInterval * k;
-
-                accumulatedPhase += timeInterval * 1.0f * freq;
-                accumulatedPhase %= 1;
+                accumulatedPhase += timeInterval * freq;
 
                 accumulatedAmplitudeModulation++;
                 accumulatedAmplitudeModulation %= samplesPerSecond*2;
 
-                var s = Math.Sin(2 * Math.PI * accumulatedPhase);
+                var s = Math.Pow(10,0) * Math.Sin(2 * Math.PI * accumulatedPhase);
                 //s *= 1 / Math.Sqrt(2);
-                //s *= Math.Cos(2.0*Math.PI*accumulatedAmplitudeModulation/samplesPerSecond);
+                //s *= Math.Cos(2.0*Math.PI*accumulatedAmplitudeModulation*2/samplesPerSecond);
 
-                s += r.Next(-1005, 1005) / 100000.0f;
+                //s += r.Next(-1005, 1005) / 65000000.0f;
 
                 samples[i] = (float)(s);
             }

@@ -37,6 +37,7 @@
             this.ClientSize = new System.Drawing.Size(784, 562);
             this.Name = "PhosphorDisplay";
             this.Text = "PhosphorDisplay";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.PhosphorDisplay_FormClosing);
             this.ResumeLayout(false);
 
         }

@@ -6,30 +6,16 @@ using System.Threading.Tasks;
 
 namespace PhosphorDisplay.Triggers
 {
-
-    public class FreeRunning : ITrigger
-    {
-        #region Implementation of ITrigger
-
-        public string Name { get { return "Free running"; } }
-        public TriggerInfo IsTriggered(float[] samples, int start)
-        {
-            return new TriggerInfo(true, start + 1);
-        }
-
-        #endregion
-    }
-
     public class Edge : ITrigger
     {
         public Edge()
         {
-            TriggerLevelL = 1.0f/1000;
-            TriggerLevelH = 5.0f/1000;
-            HistoryEffect = 6;
+            TriggerLevelL = 100.0f/1000000;
+            TriggerLevelH = 159.0f/1000000;
+            HistoryEffect = 45;
 
-            RisingEdge = false;
-            FallingEdge = true;
+            RisingEdge = true;
+            FallingEdge = false;
 
         }
 
@@ -44,16 +30,8 @@ namespace PhosphorDisplay.Triggers
         public string Name { get { return "Edge"; } }
         public TriggerInfo IsTriggered(float[] samples, int start)
         {
-            TriggerLevelL = 2000.6f / 1000000;
-            TriggerLevelH = 3000.8f / 1000000;
-
-            HistoryEffect = 6;
-            RisingEdge = true;
-            FallingEdge = false;
-            //return new TriggerInfo(true, start+1);
-
             if (start > samples.Length - 1) return new TriggerInfo(false, -1);
-
+            if (start < 0) return new TriggerInfo(false, -1);
             float lastSample = samples[start];
 
             for(int k = start+HistoryEffect; k < samples.Length; k++)
@@ -65,7 +43,18 @@ namespace PhosphorDisplay.Triggers
                         // Rising edge
                         if (samples[k + m] < TriggerLevelL)
                         {
-                            return new TriggerInfo(true, k);
+                            var duty = 0.0f;
+                            // Search for the latest that is just under..
+                            for (int m2 = 0; m2 >= m; m2--)
+                            {
+                                if (samples[k + m2] <= TriggerLevelL)
+                                {
+                                    duty = (TriggerLevelL - samples[k + m2]) / (samples[k + m2] - samples[k]);
+                                    break;
+                                }
+                            }
+
+                            return new TriggerInfo(true, k, duty);
                         }
                     }
                 }
@@ -84,6 +73,29 @@ namespace PhosphorDisplay.Triggers
             }
 
             return new TriggerInfo(false, -1);
+        }
+
+        public void SetOption<T>(TriggerOption option, T value)
+        {
+            switch (option)
+            {
+                case TriggerOption.Edge:
+                    var edges = (TriggerEdge)Enum.Parse(typeof(TriggerEdge), value.ToString());
+                    RisingEdge = edges == TriggerEdge.Both || edges == TriggerEdge.Rising;
+                    RisingEdge = edges == TriggerEdge.Both || edges == TriggerEdge.Rising;
+                    break;
+
+                case TriggerOption.LevelL:
+                    TriggerLevelL = Convert.ToSingle(value);
+                    break;
+                case TriggerOption.LevelH:
+                    TriggerLevelH = Convert.ToSingle(value);
+                    break;
+
+                case TriggerOption.EdgeWidth:
+                    HistoryEffect = Convert.ToInt32(value);
+                    break;
+            }
         }
 
         #endregion

@@ -8,11 +8,15 @@ namespace PhosphorDisplay.Data
     public interface IDataSource
     {
         float SampleRate { get; }
+        double MaximumAmplitude { get; set; }
 
         event DataSourceEvent Data;
         event HighresEvent HighresVoltage;
         event EventHandler Connected;
         event EventHandler Disconnected;
+
+        // Zero values:
+        void Zero(float zeroValue);
 
         // Start connect
         void Connect(object target);

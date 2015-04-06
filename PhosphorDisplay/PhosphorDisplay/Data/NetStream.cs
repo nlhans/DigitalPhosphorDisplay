@@ -1,5 +1,7 @@
 ﻿using System;
+using System.CodeDom;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
@@ -8,6 +10,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using PhosphorDisplay.Filters;
 
 namespace PhosphorDisplay.Data
 {
@@ -28,13 +31,22 @@ namespace PhosphorDisplay.Data
         private List<byte[]> buffer = new List<byte[]>();
         private int bufferWaiting = 0;
 
+        private float[] adcZero = new float[4];
+
+
         #region Implementation of IDataSource
 
         public float SampleRate { get; private set; }
+        public double MaximumAmplitude { get; set; }
         public event DataSourceEvent Data;
         public event HighresEvent HighresVoltage;
         public event EventHandler Connected;
         public event EventHandler Disconnected;
+
+        public void Zero(float zeroValue)
+        {
+            adcZero[(int)Math.Log10(Gain)] = zeroValue;
+        }
 
         public void Connect(object target)
         {
@@ -45,11 +57,12 @@ namespace PhosphorDisplay.Data
             netProcesser.Priority = ThreadPriority.AboveNormal;
             netProcesser.Start();
 
+            _udp = new UdpClient();
+
             // Create connection (to target?)
             IPEndPoint ipep = new IPEndPoint(IPAddress.Any, 3903);
-            IPAddress ip = IPAddress.Parse("224.5.6.7");
+            /*IPAddress ip = IPAddress.Parse("224.5.6.7");
 
-            _udp = new UdpClient();
             var ifaceIndex = 0;
 
             NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
@@ -57,7 +70,6 @@ namespace PhosphorDisplay.Data
             {
                 if (adapter.Name == "Local Area Connection")
                 {
-
                     IPv4InterfaceProperties p = adapter.GetIPProperties().GetIPv4Properties();
                     ifaceIndex = p.Index;
                     // now we have adapter index as p.Index, let put it to socket option
@@ -66,10 +78,10 @@ namespace PhosphorDisplay.Data
                     break;
                 }
             }
-            _udp.Client.Bind(ipep);
 
             var multOpt = new MulticastOption(ip, ifaceIndex);
-            _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, multOpt);
+            _udp.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.AddMembership, multOpt);*/
+            _udp.Client.Bind(ipep);
             _udpListening = true;
             _udp.BeginReceive(udpReadMore, null);
         }
@@ -114,10 +126,12 @@ namespace PhosphorDisplay.Data
 
                 AdcMcp = settings[4] == 1;
                 Gain = (int)Math.Pow(10, settings[12 + 2]);
+                MaximumAmplitude = 2.35*0.591/Gain;
                 oversampleRatio = Math.Max(1,cfg.OversampleRatio);
 
                 if (settings[4] == 1)
-                    SampleRate = 130211*2 / (float)Math.Pow(2, settings[12 + 4]);
+                    SampleRate = 553321;
+                    //SampleRate = 130211*2 / (float)Math.Pow(2, settings[12 + 4]);
                 else
                     SampleRate = 1875026;
 
@@ -138,11 +152,6 @@ namespace PhosphorDisplay.Data
                 Thread.Sleep((int)DateTime.Now.Subtract(StreamStoppedAt).TotalMilliseconds);
 
             SendCommand(PaCommand.SET_STREAM_START, new byte[0]);
-
-            // For testing purposes:
-            if (HighresVoltage != null)
-                HighresVoltage(3.177856189727783203125f);
-            //    HighresVoltage(3.30856189727783203125f);
         }
 
         public void Stop()
@@ -245,7 +254,7 @@ namespace PhosphorDisplay.Data
 
                     if (expectedPacketId != packetId)
                     {
-                        Debug.WriteLine("UDP traffic messed up order.." + ((notNextId) ? "as expected" : " WIERD!"));
+                        Debug.WriteLine("UDP traffic messed up order.." + ((notNextId) ? "as expected" : " (bug?!)"));
                     }
                     lastPacketId = packetId;
 
@@ -255,11 +264,16 @@ namespace PhosphorDisplay.Data
                 if (pkgType == PaCommand.HIGHRES_DATA)
                 {
                     var voltInt = BitConverter.ToUInt32(payload, 0);
-                    voltInt = voltInt >> 9;
                     var voltFlt = (voltInt)*1.2f/0x1FFFFF*2f*23;
 
+                    var voltCalZero = 13.63f/1000.0f; // 13.18mV offset
+                    var voltCal2048 = 2.03965f; // 0.9958984375 / 1.0023583984375
+                    var voltCal1200 = 1.1925f; // 0.99375 / 1.004775
+                    var voltScale = voltCal2048/2.048f;
+                    voltFlt -= voltCalZero;
+                    voltFlt /= voltScale;
 
-                    if (voltFlt>0 && voltFlt<12 && HighresVoltage != null)
+                    if (voltFlt>-0.1 && voltFlt<12 && HighresVoltage != null)
                         HighresVoltage(voltFlt);
                 }
             }
@@ -296,103 +310,29 @@ namespace PhosphorDisplay.Data
                 }
             }
 
+            int cooldown = 0;
             for (int k = 0; k < samplesInPacket; k++)
             {
-                short sh = BitConverter.ToInt16(packet, samplesOffset+ k*2);
-                float currentValue = sh/1.0f;
+                var l = samplesOffset + k*2;
+                var t = packet[l+1];
 
-                if (ranges.Keys.Any(x=> x == k))
+                ushort sh = BitConverter.ToUInt16(packet, l);
+
+                if (ranges.Keys.Contains(k))
                 {
                     Gain = ranges.FirstOrDefault(x => x.Key == k).Value;
                     if (k != 0)
-                    Debug.WriteLine("Switched to gain range" + Gain);
+                    {
+                        cooldown = (int)Math.Max(5, SampleRate/6666);
+                        Debug.WriteLine("Switched to gain range" + Gain + " @ " + k);
+                    }
                 }
+                if (cooldown > 0) cooldown--;
 
-                if (AdcMcp)
-                {
-                    currentValue = currentValue/32768.0f/1/1.5f*1.2f*23;
-                    currentValue /= 10; // shunt
-
-                    currentValue /= Gain; // gain
-
-                    var voltageCorrection = LastHighresVoltage/15220.588235294117647058823529412f;
-                    currentValue -= voltageCorrection;
-
-                    currentValue *= 1000000;
-                    if (Gain == 10)
-                    {
-                        currentValue -= 12.88f;
-
-                        var adc = k%4;
-                        switch (adc)
-                        {
-                            case 0:
-                                currentValue += 8.57f;
-                                break;
-                            case 1:
-                                currentValue += 19.7f;
-                                break;
-                            case 2:
-                                currentValue -= 61.65f;
-                                break;
-                            case 3:
-                                currentValue += 5.47f;
-                                break;
-                        }
-                    }
-
-                    if (Gain == 1)
-                        currentValue -= 1300;
-                    if (Gain == 1000)
-                    {
-                        currentValue -= 3.6f;
-
-                        var adc = k%4;
-                        switch (adc)
-                        {
-                            case 0:
-                                currentValue -= 0.18f;
-                                break;
-                            case 1:
-                                currentValue += 0.12f;
-                                break;
-                            case 2:
-                                currentValue -= 0.37f;
-                                break;
-                            case 3:
-                                currentValue += 0.34f;
-                                break;
-                        }
-                    }
-                    if (Gain == 100)
-                    {
-                        currentValue -= 2.5f;
-                    }
-
-                    if (Gain == 1000)
-                        currentValue /= 1.03f;
-                    else
-                        currentValue /= 1.02f;
-                    currentValue /= 1000000;
-                }
+                if(cooldown > 0 && k > 0)
+                    samples[k] = samples[k - 1];
                 else
-                {
-                    currentValue = (currentValue - 2048)/2048.0f;
-                    currentValue *= 2.5f*23;
-
-                    currentValue /= 10; // shunt
-
-                    currentValue /= Gain; // gain
-
-                    currentValue -= LastHighresVoltage/15220.588235294117647058823529412f;
-                    currentValue /= 2;
-
-                    if (Gain == 1000)
-                        currentValue -= 0.000149f;
-                    if (Gain == 10)
-                        currentValue -= 0.0013f;
-                }
-                samples[k] = currentValue;
+                    samples[k] = ConvertCodeToAmp(sh, LastHighresVoltage, Gain, k, AdcMcp, true);
             }
 
             DataPacket dpk;
@@ -403,6 +343,7 @@ namespace PhosphorDisplay.Data
             }
             else
             {
+                // TODO: Do oversapmle before DSP filtering
                 float[] oversampledSamples = new float[samples.Length/osrRatio];
                 for (int k = 0; k < oversampledSamples.Length; k++)
                 {
@@ -421,6 +362,135 @@ namespace PhosphorDisplay.Data
             if (Data != null)
                 Data(dpk);
 
+        }
+
+
+        public float ConvertCodeToAmp(ushort rawValue, float voltage, float Gain, int k, bool mcpAdc, bool adsAdc)
+        {
+            float currentValue;
+
+            if (adsAdc)
+            {
+                currentValue = (rawValue - 0x8000) / 65536.0f * 2.048f * 23;
+
+                currentValue /= 10; // shunt
+
+                currentValue /= Gain; // gain
+
+                currentValue += 11.09f / 1000000;
+
+                var voltageCorrection = voltage / 15220.588235294117647058823529412f;
+                voltageCorrection -= voltage*1.43f/1000000.0f;
+                currentValue -= voltageCorrection;
+
+                currentValue *= 1000000;
+
+                switch (Gain.ToString())
+                {
+                    case "1000":
+
+                        break;
+                    case "100":
+
+                        break;
+                    case "10":
+
+
+                        break;
+                    case "1":
+
+                        break;
+                }
+                currentValue /= 1000000;
+                
+                // User zero value:
+                currentValue -= this.adcZero[(int) Math.Log10(Gain)];
+            }
+            else if (mcpAdc)
+            {
+                currentValue = rawValue / 32768.0f / 1 / 1.5f * 1.2f * 23;
+                currentValue /= 10; // shunt
+
+                currentValue /= Gain; // gain
+
+                var voltageCorrection = voltage/15220.588235294117647058823529412f;
+                currentValue -= voltageCorrection;
+
+                currentValue *= 1000000;
+                if (Gain == 10)
+                {
+                    currentValue -= 12.88f;
+
+                    var adc = k%4;
+                    switch (adc)
+                    {
+                        case 0:
+                            currentValue += 8.57f;
+                            break;
+                        case 1:
+                            currentValue += 19.7f;
+                            break;
+                        case 2:
+                            currentValue -= 61.65f;
+                            break;
+                        case 3:
+                            currentValue += 5.47f;
+                            break;
+                    }
+                }
+
+                if (Gain == 1)
+                    currentValue -= 1300;
+                if (Gain == 1000)
+                {
+                    currentValue -= 3.6f;
+
+                    var adc = k%4;
+                    switch (adc)
+                    {
+                        case 0:
+                            currentValue -= 0.18f;
+                            break;
+                        case 1:
+                            currentValue += 0.12f;
+                            break;
+                        case 2:
+                            currentValue -= 0.37f;
+                            break;
+                        case 3:
+                            currentValue += 0.34f;
+                            break;
+                    }
+                }
+                if (Gain == 100)
+                {
+                    currentValue -= 2.5f;
+                }
+
+                if (Gain == 1000)
+                    currentValue /= 1.03f;
+                else
+                    currentValue /= 1.02f;
+                currentValue /= 1000000;
+            }
+            else
+            {
+                currentValue = (rawValue - 2048) / 2048.0f;
+                currentValue *= 2.5f*23;
+
+                currentValue /= 10; // shunt
+
+                currentValue /= Gain; // gain
+
+                currentValue -= voltage/15220.588235294117647058823529412f;
+                currentValue /= 2;
+
+                if (Gain == 1000)
+                    currentValue -= 0.000149f;
+                if (Gain == 10)
+                    currentValue -= 0.0013f;
+            }
+            return currentValue;
         }
 
         public void SendCommand(PaCommand cmd, byte[] payload)

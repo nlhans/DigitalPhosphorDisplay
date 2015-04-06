@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using PhosphorDisplay.Acquisition;
 using PhosphorDisplay.Data;
+using PhosphorDisplay.Triggers;
 using Timer = System.Windows.Forms.Timer;
 using PhosphorDisplay.Widget;
 
@@ -36,6 +37,7 @@ namespace PhosphorDisplay
             // Zoom waveform
             displayTrig = new ucPhosphorDisplay();
             displayTrig.Channels = 1;
+            displayTrig.DoubleClicked += displayTrig_DoubleClicked;
 
             displayTrig.HorizontalScale = (float)(acqEngine.AcquisitionTime / displayTrig.HorizontalDivisions / 2);
             displayTrig.VerticalScale = new float[3] { 0.25f, 1, 1 };
@@ -51,8 +53,33 @@ namespace PhosphorDisplay
 
             Controls.Add(displayOverview);
 
+            var takeZeroTimer = new System.Timers.Timer();
+            takeZeroTimer.Interval = 500;
+            takeZeroTimer.AutoReset = false;
+            takeZeroTimer.Elapsed += (sender, args) =>
+                                     {
+                                         // Calculate zero from autocal values
+                                         lock (autoCalValues)
+                                         {
+                                             var meanZero = autoCalValues.Average();
+                                             acqEngine.Source.Zero(meanZero);
+                                         }
+                                     };
+
             // Measurement "DMM"
             dmm = new ucRmsMeter();
+            dmm.ClearZero += (sender, args) => acqEngine.Source.Zero(0);
+            dmm.Zero += (sender, args) =>
+                        {
+                            acqEngine.Source.Zero(0);
+                            lock (autoCalValues)
+                            {
+                                Thread.Sleep(500);
+                                autoCalValues.Clear();
+                            }
+                            takeZeroTimer.Start();
+                        };
+
             Controls.Add(dmm);
 
             // Control panel
@@ -82,7 +109,7 @@ namespace PhosphorDisplay
                 }
             };
             
-            t.Interval = 10; // 25 fps
+            t.Interval = 40; // 25 fps
             t.Start();
 
             acqEngine.Source.HighresVoltage += voltage =>
@@ -92,6 +119,19 @@ namespace PhosphorDisplay
             };
             this.SizeChanged += Form1_SizeChanged;
         }
+
+        private void displayTrig_DoubleClicked(double time, double scalarCh1)
+        {
+            var half = displayTrig.VerticalScale[0]/100.0f;
+
+            // Set trigger level:
+            acqEngine.Trigger.SetOption(TriggerOption.LevelL, scalarCh1 - half);
+            acqEngine.Trigger.SetOption(TriggerOption.LevelH, scalarCh1 + half);
+
+            Console.WriteLine("Trigger level set at {0:0.000000}A ({1:000.000} uA)", scalarCh1, (scalarCh1*1000000));
+        }
+
+
         void Form1_Layout(object sender, LayoutEventArgs e)
         {
             var h = Height-40;
@@ -108,12 +148,15 @@ namespace PhosphorDisplay
             displayTrig.Location = new Point(0, h1);
             controls.Location = new Point(displayOverview.Width, h1);
         }
-        void acqEngine_OverviewWaveform(Waveform f)
+
+        private List<float> autoCalValues = new List<float>();
+
+        private void acqEngine_OverviewWaveform(Waveform f)
         {
             if (f.Error) return;
-            displayOverview.HorizontalScale = f.Horizontal[f.Samples - 1] / 10;
-            displayOverview.HorizontalOffset = displayOverview.HorizontalScale * displayOverview.HorizontalDivisions;
-            
+            displayOverview.HorizontalScale = f.Horizontal[f.Samples - 1]/10;
+            displayOverview.HorizontalOffset = displayOverview.HorizontalScale*displayOverview.HorizontalDivisions;
+
             displayOverview.Add(f);
 
             // Update dmm:
@@ -128,7 +171,7 @@ namespace PhosphorDisplay
                 currentMin = Math.Min(currentMin, c);
                 currentMax = Math.Max(currentMax, c);
 
-                currentRms += c * c;
+                currentRms += c*c;
                 currentMean += c;
             }
 
@@ -136,7 +179,7 @@ namespace PhosphorDisplay
 
             currentRms *= f.Horizontal[1] - f.Horizontal[0];
             currentRms /= f.Horizontal[f.Samples - 1];
-            currentRms = (float)Math.Sqrt(currentRms);
+            currentRms = (float) Math.Sqrt(currentRms);
 
             dmm.meanCurrent = currentMean;
             dmm.rmsCurrent = currentRms;
@@ -146,7 +189,16 @@ namespace PhosphorDisplay
             dmm.sixDigitVoltage = acqEngine.LastVoltageMeasurent;
 
             overviewRefresh = true;
+
+            // Autocal values;
+            lock (autoCalValues)
+            {
+                autoCalValues.AddRange(f.Data[0].Take(f.Samples));
+                if (autoCalValues.Count > 10000)
+                    autoCalValues.RemoveRange(0, autoCalValues.Count - 10000);
+            }
         }
+
         void acqEngine_Waveform(Waveform f)
         {
             displayTrig.Add(f);
@@ -155,6 +207,11 @@ namespace PhosphorDisplay
         void Form1_SizeChanged(object sender, EventArgs e)
         {
             displayTrig.Invalidate();
+        }
+
+        private void PhosphorDisplay_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            acqEngine.Stop();
         }
     }
 }

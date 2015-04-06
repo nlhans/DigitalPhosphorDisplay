@@ -33,6 +33,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Name = "ucPhosphorDisplay";
             this.Size = new System.Drawing.Size(956, 497);
+            this.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.ucPhosphorDisplay_MouseDoubleClick);
             this.ResumeLayout(false);
 
         }
