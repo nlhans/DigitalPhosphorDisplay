@@ -280,6 +280,8 @@ namespace PhosphorDisplay.Data
 
         }
 
+        private List<float> oversamplingSamples = new List<float>(); 
+
         public void ProcessSamples(byte[] packet)
         {
             float timeInterval = 1.0f/SampleRate;
@@ -336,28 +338,26 @@ namespace PhosphorDisplay.Data
             }
 
             DataPacket dpk;
-            var osrRatio = Math.Min(oversampleRatio, samples.Length);
-            if (osrRatio == 1)
+
+            if (oversampleRatio == 1)
             {
                 dpk = new DataPacket(samples, DataType.DutCurrent, (float) timeInterval);
             }
             else
             {
-                // TODO: Do oversapmle before DSP filtering
-                float[] oversampledSamples = new float[samples.Length/osrRatio];
-                for (int k = 0; k < oversampledSamples.Length; k++)
-                {
-                    var v = 0.0f;
-                    for (int s = 0; s < osrRatio; s++)
-                    {
-                        v += samples[k*osrRatio + s];
-                    }
-                    v /= osrRatio;
+                // Add all samples to array
+                oversamplingSamples.AddRange(samples);
+                List<float> outputSamples = new List<float>();
 
-                    oversampledSamples[k] = v;
+                while (oversamplingSamples.Count() >= oversampleRatio)
+                {
+                    var v = oversamplingSamples.Take(oversampleRatio).Sum()/oversampleRatio;
+                    outputSamples.Add(v);
+
+                    oversamplingSamples.RemoveRange(0, oversampleRatio);
                 }
 
-                dpk = new DataPacket(oversampledSamples, DataType.DutCurrent, (float) timeInterval);
+                dpk = new DataPacket(outputSamples.ToArray(), DataType.DutCurrent, (float)timeInterval);
             }
             if (Data != null)
                 Data(dpk);
@@ -388,17 +388,23 @@ namespace PhosphorDisplay.Data
                 switch (Gain.ToString())
                 {
                     case "1000":
-
+                        currentValue -= 8.921f;
+                        currentValue *= 1.004733150620836897795431537004f;
                         break;
                     case "100":
-
+                        currentValue += 6.212f;
+                        currentValue -= 0.2f * voltage;
+                        currentValue *= 1.0045381673442926137934153855432f;
                         break;
                     case "10":
-
-
+                        currentValue += 159.604f;
+                        currentValue += 0.4f * voltage;
+                        currentValue *= 1.0079312257348863006100942872989f;
                         break;
                     case "1":
-
+                        currentValue += 1729.4f;
+                        currentValue -= voltage * 2.25f;
+                        currentValue *= 1.0021917534421995348722378371204f;
                         break;
                 }
                 currentValue /= 1000000;
