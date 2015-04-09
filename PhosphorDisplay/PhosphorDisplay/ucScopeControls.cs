@@ -18,6 +18,33 @@ namespace PhosphorDisplay
         private AcquisitionEngine acq;
         private ucPhosphorDisplay displayTrigger;
         private ucPhosphorDisplay displayLong;
+
+        public delegate void UpdateRateChange(float period);
+        public event UpdateRateChange UpdateRateChanged;
+
+        private float[] updatePeriods = new float[]
+                                        {
+                                            20,
+                                            40,
+                                            50,
+                                            80,
+                                            100,
+                                            125,
+                                            200,
+                                            250,
+                                            333,
+                                            400,
+                                            500,
+                                            800,
+                                            1000,
+                                            1500,
+                                            2000,
+                                            2500,
+                                            3000,
+                                            5000,
+                                            10000,
+                                        };
+
         private float[] timeSteps =
             new float[]
         {
@@ -98,6 +125,10 @@ namespace PhosphorDisplay
             tbAmpPerDiv.Value = tbAmpPerDiv.Maximum;
             tbSecPerDiv.Value = timeSteps.Count(x => x < 2.0f / 1000);
             tbSecPerDivScnd.Value = timeSteps.Count(x => x < 100.0f / 1000);
+
+            tbRefreshPeriod.Minimum = 0;
+            tbRefreshPeriod.Maximum = this.updatePeriods.Length - 1;
+            tbRefreshPeriod.Value = 0;
 
             tbSecPerDivScnd_ValueChanged(null, new EventArgs());
             tbSecPerDiv_ValueChanged(null, new EventArgs());
@@ -260,6 +291,13 @@ namespace PhosphorDisplay
         private void lbContrast_DoubleClick(object sender, EventArgs e)
         {
             tbContrast.Value = 100;
+        }
+
+        private void tbRefreshPeriod_ValueChanged(object sender, EventArgs e)
+        {
+            lbRefrehPeriod.Text = string.Format("{0:0}ms ({1:0.0}Hz)", updatePeriods[tbRefreshPeriod.Value], (1000/updatePeriods[tbRefreshPeriod.Value]));
+            if (UpdateRateChanged != null)
+                UpdateRateChanged(updatePeriods[tbRefreshPeriod.Value]);
         }
     }
 }

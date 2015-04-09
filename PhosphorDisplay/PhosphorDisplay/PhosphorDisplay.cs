@@ -26,6 +26,9 @@ namespace PhosphorDisplay
         public ucPhosphorDisplay displayOverview;
         public ucRmsMeter dmm;
         public AcquisitionEngine acqEngine;
+
+        private Timer waveformUpdateTimer;
+
         public PhosphorDisplay()
         {
             InitializeComponent();
@@ -84,6 +87,7 @@ namespace PhosphorDisplay
 
             // Control panel
             controls = new ucScopeControls(acqEngine, displayTrig, displayOverview);
+            controls.UpdateRateChanged += controls_UpdateRateChanged;
             Controls.Add(controls);
 
             this.Layout += Form1_Layout;
@@ -91,8 +95,8 @@ namespace PhosphorDisplay
             acqEngine.OverviewWaveform += acqEngine_OverviewWaveform;
             acqEngine.TriggeredWaveform += acqEngine_Waveform;
 
-            var t = new Timer();
-            t.Tick += (sender, args) =>
+            waveformUpdateTimer = new Timer();
+            waveformUpdateTimer.Tick += (sender, args) =>
             {
                 if (triggerOk)
                 {
@@ -109,8 +113,8 @@ namespace PhosphorDisplay
                 }
             };
             
-            t.Interval = 40; // 25 fps
-            t.Start();
+            waveformUpdateTimer.Interval = 40; // 25 fps
+            waveformUpdateTimer.Start();
 
             acqEngine.Source.HighresVoltage += voltage =>
             {
@@ -118,6 +122,12 @@ namespace PhosphorDisplay
                 dmm.Invalidate();
             };
             this.SizeChanged += Form1_SizeChanged;
+        }
+
+        private void controls_UpdateRateChanged(float period)
+        {
+            waveformUpdateTimer.Interval = (int)period;
+
         }
 
         private void displayTrig_DoubleClicked(double time, double scalarCh1)
@@ -154,6 +164,7 @@ namespace PhosphorDisplay
         private void acqEngine_OverviewWaveform(Waveform f)
         {
             if (f.Error) return;
+            if (f.Samples == 0) return;
             displayOverview.HorizontalScale = f.Horizontal[f.Samples - 1]/10;
             displayOverview.HorizontalOffset = displayOverview.HorizontalScale*displayOverview.HorizontalDivisions;
 

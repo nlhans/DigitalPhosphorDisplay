@@ -49,6 +49,8 @@
             this.cbGain = new System.Windows.Forms.ComboBox();
             this.cbAdcType = new System.Windows.Forms.ComboBox();
             this.btSendCfg = new System.Windows.Forms.Button();
+            this.tbRefreshPeriod = new System.Windows.Forms.TrackBar();
+            this.lbRefrehPeriod = new System.Windows.Forms.Label();
             this.tabs.SuspendLayout();
             this.tbScope.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.tbMinBrightness)).BeginInit();
@@ -57,6 +59,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.tbSecPerDiv)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.tbAmpPerDiv)).BeginInit();
             this.tabADC.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tbRefreshPeriod)).BeginInit();
             this.SuspendLayout();
             // 
             // tabs
@@ -74,6 +77,8 @@
             // tbScope
             // 
             this.tbScope.BackColor = System.Drawing.Color.Black;
+            this.tbScope.Controls.Add(this.lbRefrehPeriod);
+            this.tbScope.Controls.Add(this.tbRefreshPeriod);
             this.tbScope.Controls.Add(this.lbBrightness);
             this.tbScope.Controls.Add(this.lbContrast);
             this.tbScope.Controls.Add(this.tbMinBrightness);
@@ -320,6 +325,25 @@
             this.btSendCfg.UseVisualStyleBackColor = true;
             this.btSendCfg.Click += new System.EventHandler(this.btSendCfg_Click);
             // 
+            // tbRefreshPeriod
+            // 
+            this.tbRefreshPeriod.Location = new System.Drawing.Point(6, 311);
+            this.tbRefreshPeriod.Name = "tbRefreshPeriod";
+            this.tbRefreshPeriod.Size = new System.Drawing.Size(165, 45);
+            this.tbRefreshPeriod.TabIndex = 19;
+            this.tbRefreshPeriod.Value = 10;
+            this.tbRefreshPeriod.ValueChanged += new System.EventHandler(this.tbRefreshPeriod_ValueChanged);
+            // 
+            // lbRefrehPeriod
+            // 
+            this.lbRefrehPeriod.AutoSize = true;
+            this.lbRefrehPeriod.ForeColor = System.Drawing.Color.Transparent;
+            this.lbRefrehPeriod.Location = new System.Drawing.Point(74, 343);
+            this.lbRefrehPeriod.Name = "lbRefrehPeriod";
+            this.lbRefrehPeriod.Size = new System.Drawing.Size(35, 13);
+            this.lbRefrehPeriod.TabIndex = 20;
+            this.lbRefrehPeriod.Text = "label1";
+            // 
             // ucScopeControls
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -338,6 +362,7 @@
             ((System.ComponentModel.ISupportInitialize)(this.tbAmpPerDiv)).EndInit();
             this.tabADC.ResumeLayout(false);
             this.tabADC.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.tbRefreshPeriod)).EndInit();
             this.ResumeLayout(false);
 
         }
@@ -365,6 +390,8 @@
         private System.Windows.Forms.Label lbContrast;
         private System.Windows.Forms.TrackBar tbMinBrightness;
         private System.Windows.Forms.TrackBar tbContrast;
+        private System.Windows.Forms.Label lbRefrehPeriod;
+        private System.Windows.Forms.TrackBar tbRefreshPeriod;
 
     }
 }
