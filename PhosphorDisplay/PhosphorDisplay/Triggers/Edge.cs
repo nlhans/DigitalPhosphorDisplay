@@ -12,7 +12,7 @@ namespace PhosphorDisplay.Triggers
         {
             TriggerLevelL = 100.0f/1000000;
             TriggerLevelH = 159.0f/1000000;
-            HistoryEffect = 45;
+            HistoryEffect = 25;
 
             RisingEdge = true;
             FallingEdge = false;

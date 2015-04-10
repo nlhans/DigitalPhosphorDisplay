@@ -34,6 +34,8 @@
             this.Name = "ucPhosphorDisplay";
             this.Size = new System.Drawing.Size(956, 497);
             this.MouseDoubleClick += new System.Windows.Forms.MouseEventHandler(this.ucPhosphorDisplay_MouseDoubleClick);
+            this.MouseDown += new System.Windows.Forms.MouseEventHandler(this.ucPhosphorDisplay_MouseDown);
+            this.MouseUp += new System.Windows.Forms.MouseEventHandler(this.ucPhosphorDisplay_MouseUp);
             this.ResumeLayout(false);
 
         }

@@ -16,6 +16,10 @@ namespace PhosphorDisplay.Widget
 {
     public partial class ucPhosphorDisplay : UserControl
     {
+        public delegate string ProcessMouseDrag(List<List<double>> waveforms, double timeStep);
+
+        public ProcessMouseDrag ProcessHighlight;
+
         public delegate void DoubleClickEvent(double time, double scalarCh1);
         public event DoubleClickEvent DoubleClicked;
         #region Waveform draw settings
@@ -110,6 +114,8 @@ namespace PhosphorDisplay.Widget
                 g.DrawLine((div == 0) ? gridCenterPen : gridPen, offsetHorizontalDivision, y, x, y);
             }
 
+            List<List<double>> highlightedWaveforms = new List<List<double>>();
+
             List<Waveform> myWaveforms = new List<Waveform>();
             lock (waveformsMutex)
             {
@@ -139,163 +145,184 @@ namespace PhosphorDisplay.Widget
                     intensity[ch] = arr;
                 }
 
-                //foreach (var wave in myWaveforms)
-                Parallel.ForEach(myWaveforms, (wave) =>
-                                              {
-                                                  // Process may interpolate the waveform if not enough samples are available.
-                                                  // The draw engine is only capable of doing dots mode.
-                                                  if (DotsOnly)
-                                                      wave.Process(GridWidth);
+                // Calculate X position on screen. Check in bounds.
+                var highlightStart =
+                    (int)
+                        Math.Round(((mouseDragStart - HorizontalOffset) /
+                                    HorizontalScale + HorizontalDivisions) *
+                                   pxPerHorizontalDivision);
+                var highlightEnd =
+                    (int)
+                        Math.Round(((mouseDragStop - HorizontalOffset) /
+                                    HorizontalScale + HorizontalDivisions) *
+                                   pxPerHorizontalDivision);
 
-                                                  // The compression ratio is applicable when there are more samples to displayTrig than displayTrig width is available.
-                                                  // This will mean that it's possible more than 1 sample is displayed on the same X position.
-                                                  // This can increase the number of hits on that specific pixel, and therefor an compression ratio is used.
-                                                  // It's a compromise between detail & accuracy. Higher resolution = better accuracy, at all times.
-                                                  // But also slower to draw.
-                                                  compressionRatio = Math.Max(wave.Samples/GridWidth, compressionRatio);
-                                                  for (var ch = 0; ch < Channels; ch++)
-                                                  {
-                                                      var lastX = -1;
-                                                      var lastY = -1;
-                                                      var sameX = 0;
+                foreach (var wave in myWaveforms)
+                {
+                    // Process may interpolate the waveform if not enough samples are available.
+                    // The draw engine is only capable of doing dots mode.
+                    if (DotsOnly)
+                        wave.Process(GridWidth);
 
-                                                      int yCenter =
-                                                          (int)
-                                                              ((VerticalDivisions - VerticalOffset[ch])*
-                                                               pxPerVerticalDivision);
-                                                      for (int s = 0; s < wave.Samples; s++)
-                                                      {
-                                                          var waveTime = wave.Horizontal[s] - wave.TriggerTime;
+                    // Values for highlighting
+                    List<double> highlightList = new List<double>();
 
-                                                          // Calculate X position on screen. Check in bounds.
-                                                          var x =
-                                                              (int)
-                                                                  Math.Round(((waveTime - HorizontalOffset)/
-                                                                              HorizontalScale + HorizontalDivisions)*
-                                                                             pxPerHorizontalDivision);
+                    // The compression ratio is applicable when there are more samples to displayTrig than displayTrig width is available.
+                    // This will mean that it's possible more than 1 sample is displayed on the same X position.
+                    // This can increase the number of hits on that specific pixel, and therefor an compression ratio is used.
+                    // It's a compromise between detail & accuracy. Higher resolution = better accuracy, at all times.
+                    // But also slower to draw.
+                    compressionRatio = Math.Max(wave.Samples/GridWidth, compressionRatio);
+                    for (var ch = 0; ch < Channels; ch++)
+                    {
+                        var lastX = -1;
+                        var lastY = -1;
+                        var sameX = 0;
 
-                                                          if (x < 0)
-                                                              continue;
-                                                          if (x == GridWidth)
-                                                              x = GridWidth - 1;
-                                                          if (x > GridWidth)
-                                                              break;
+                        int yCenter =
+                            (int)
+                                ((VerticalDivisions - VerticalOffset[ch])*
+                                 pxPerVerticalDivision);
+                        for (int s = 0; s < wave.Samples; s++)
+                        {
+                            var waveTime = wave.Horizontal[s] - wave.TriggerTime;
 
-                                                          // Calculate Y position on screen. Check in bounds.
-                                                          var y =
-                                                              (int)
-                                                                  ((wave.Data[ch][s]/-VerticalScale[ch])*
-                                                                   pxPerVerticalDivision) + yCenter;
+                            // Calculate X position on screen. Check in bounds.
+                            var x =
+                                (int)
+                                    Math.Round(((waveTime - HorizontalOffset)/
+                                                HorizontalScale + HorizontalDivisions)*
+                                               pxPerHorizontalDivision);
 
-                                                          if (y < 0)
-                                                              y = 0;
-                                                          if (y >= GridHeight)
-                                                              y = GridHeight - 1;
+                            if (x < 0)
+                                continue;
+                            if (x == GridWidth)
+                                x = GridWidth - 1;
+                            if (x > GridWidth)
+                                break;
 
-                                                          // Make a hit for this pixel.
-                                                          if (lastX >= 0 && !DotsOnly)
-                                                          {
-                                                              var dx = x - lastX;
-                                                              var dy = y - lastY;
-                                                              if (Math.Abs(dx) > Math.Abs(dy))
-                                                              {
-                                                                  if (dx > 0)
-                                                                  {
-                                                                      if (dx > x) dx = x;
+                            // Calculate Y position on screen. Check in bounds.
+                            var y =
+                                (int)
+                                    ((wave.Data[ch][s]/-VerticalScale[ch])*
+                                     pxPerVerticalDivision) + yCenter;
 
-                                                                      for (var xInterpolated = 0;
-                                                                          xInterpolated < dx;
-                                                                          xInterpolated++)
-                                                                      {
-                                                                          var yInterpolated = y - dy*xInterpolated/dx;
-                                                                          try
-                                                                          {
-                                                                              intensity[ch][x - xInterpolated][
-                                                                                  yInterpolated]++;
-                                                                          }
-                                                                          catch
-                                                                          {
-                                                                          }
-                                                                      }
-                                                                  }
-                                                                  else
-                                                                  {
-                                                                      if (-dx > x) dx = -x;
+                            if (mouseDragVisible && waveTime >= mouseDragStart && waveTime  <= mouseDragStop)
+                                highlightList.Add(wave.Data[ch][s]);
 
-                                                                      for (var xInterpolated = 0;
-                                                                          xInterpolated < -dx;
-                                                                          xInterpolated++)
-                                                                      {
-                                                                          var yInterpolated = y + dy*xInterpolated/dx;
-                                                                          try
-                                                                          {
-                                                                              intensity[ch][x - xInterpolated][
-                                                                                  yInterpolated]++;
-                                                                          }
-                                                                          catch
-                                                                          {
-                                                                          }
-                                                                      }
-                                                                  }
-                                                              }
-                                                              else
-                                                              {
-                                                                  if (dy > 0)
-                                                                  {
-                                                                      for (var yInterpolated = 0;
-                                                                          yInterpolated < dy;
-                                                                          yInterpolated++)
-                                                                      {
-                                                                          var xInterpolated = lastX +
-                                                                                              dx*yInterpolated/dy;
-                                                                          try
-                                                                          {
-                                                                              intensity[ch][xInterpolated][
-                                                                                  lastY + yInterpolated]++;
-                                                                          }
-                                                                          catch
-                                                                          {
-                                                                          }
-                                                                      }
-                                                                  }
-                                                                  else
-                                                                  {
-                                                                      for (var yInterpolated = 0;
-                                                                          yInterpolated < -dy;
-                                                                          yInterpolated++)
-                                                                      {
-                                                                          var xInterpolated = lastX +
-                                                                                              dx*yInterpolated/-dy;
+                            if (y < 0)
+                                y = 0;
+                            if (y >= GridHeight)
+                                y = GridHeight - 1;
 
-                                                                          try
-                                                                          {
-                                                                              var y_ = Math.Min(GridHeight - 1,
-                                                                                  lastY - yInterpolated);
+                            // Make a hit for this pixel.
+                            if (lastX >= 0 && !DotsOnly)
+                            {
+                                var dx = x - lastX;
+                                var dy = y - lastY;
+                                if (Math.Abs(dx) > Math.Abs(dy))
+                                {
+                                    if (dx > 0)
+                                    {
+                                        if (dx > x) dx = x;
 
-                                                                              intensity[ch][xInterpolated][y_]++;
-                                                                          }
-                                                                          catch
-                                                                          {
-                                                                          }
-                                                                      }
-                                                                  }
+                                        for (var xInterpolated = 0;
+                                            xInterpolated < dx;
+                                            xInterpolated++)
+                                        {
+                                            var yInterpolated = y - dy*xInterpolated/dx;
+                                            try
+                                            {
+                                                intensity[ch][x - xInterpolated][
+                                                    yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        if (-dx > x) dx = -x;
 
-                                                              }
+                                        for (var xInterpolated = 0;
+                                            xInterpolated < -dx;
+                                            xInterpolated++)
+                                        {
+                                            var yInterpolated = y + dy*xInterpolated/dx;
+                                            try
+                                            {
+                                                intensity[ch][x - xInterpolated][
+                                                    yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    if (dy > 0)
+                                    {
+                                        for (var yInterpolated = 0;
+                                            yInterpolated < dy;
+                                            yInterpolated++)
+                                        {
+                                            var xInterpolated = lastX +
+                                                                dx*yInterpolated/dy;
+                                            try
+                                            {
+                                                intensity[ch][xInterpolated][
+                                                    lastY + yInterpolated]++;
+                                            }
+                                            catch
+                                            {
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        for (var yInterpolated = 0;
+                                            yInterpolated < -dy;
+                                            yInterpolated++)
+                                        {
+                                            var xInterpolated = lastX +
+                                                                dx*yInterpolated/-dy;
 
-                                                              if (lastX != x)
-                                                                  sameX = 2;
-                                                              else
-                                                                  sameX++;
-                                                              //compressionRatio = Math.Max(sameX, compressionRatio);
-                                                          }
-                                                          else
-                                                              intensity[ch][x][y]++;
+                                            try
+                                            {
+                                                var y_ = Math.Min(GridHeight - 1,
+                                                    lastY - yInterpolated);
 
-                                                          lastX = x;
-                                                          lastY = y;
-                                                      }
-                                                  }
-                                              });
+                                                intensity[ch][xInterpolated][y_]++;
+                                            }
+                                            catch
+                                            {
+                                            }
+                                        }
+                                    }
+
+                                }
+
+                                if (lastX != x)
+                                    sameX = 2;
+                                else
+                                    sameX++;
+                                //compressionRatio = Math.Max(sameX, compressionRatio);
+                            }
+                            else
+                                intensity[ch][x][y]++;
+
+                            lastX = x;
+                            lastY = y;
+                        }
+                    }
+
+                    // add:
+                    if (mouseDragVisible)
+                        highlightedWaveforms.Add(highlightList);
+                }
 
                 //compressionRatio = 1;
 
@@ -316,6 +343,32 @@ namespace PhosphorDisplay.Widget
                 // We take the hit map
                 foreach (var channel in intensity)
                 {
+                    // Highlighting?
+                    if (this.mouseDragVisible)
+                    {
+
+                        var lastY = 0;
+                        for (var x = highlightStart; x < highlightEnd; x++)
+                        {
+                            if (x < 0) continue;
+                            if (x >= channel.Length) break;
+                            for (var y = GridHeight / 2; y > 0; y--)
+                            {
+                                if (y >= channel[x].Length) continue;
+                                if (channel[x][y] > 0)
+                                    lastY = y;
+                            }
+
+                            for (var y = GridHeight / 2; y > lastY; y--)
+                            {
+                                if (y >= channel[x].Length) continue;
+
+                                // Highlight all positive.
+                                channel[x][y] += myWaveforms.Count / 20 + 1;
+                            }
+                        }
+                    }
+
                     var chColor = ChannelColors[k++];
                     var noOfPens = myWaveforms.Count * compressionRatio + 1;
                     var penPallette = new byte[noOfPens][];
@@ -384,6 +437,7 @@ namespace PhosphorDisplay.Widget
                     }
 
                 }
+
                 Marshal.Copy(bitmapBuffer, 0, ptr, bitmapBuffer.Length);
                 graph.UnlockBits(dat);
 
@@ -396,6 +450,16 @@ namespace PhosphorDisplay.Widget
             sw.Stop();
             waveformsCount += myWaveforms.Count;
             renderTime += (float)sw.ElapsedMilliseconds;
+
+            // Process highlighted waveforms for string to display on the graph:
+            if (mouseDragVisible && ProcessHighlight != null && myWaveforms.Any())
+            {
+                var wfm = myWaveforms.FirstOrDefault();
+                var step = wfm.Horizontal[1] - wfm.Horizontal[0];
+                var highlightOutput = ProcessHighlight(highlightedWaveforms, step);
+                e.Graphics.DrawString(highlightOutput.ToString(), new Font("Verdana", 7), Brushes.White,0.0f, 12.0f);
+                
+            }
 
             var dt = DateTime.Now.Subtract(lastWfmsMeasurement);
             if (dt.TotalMilliseconds > 500 && waveformsCount > 10 && myWaveforms.Any())
@@ -454,6 +518,28 @@ namespace PhosphorDisplay.Widget
 
             if (DoubleClicked != null)
                 DoubleClicked(scalarValueTime, scalarValueCh1);
+        }
+
+        private bool mouseDragVisible = false;
+        private double mouseDragStart = 0.0f;
+        private double mouseDragStop = 0.0f;
+        private DateTime mouseDragTime;
+
+        private void ucPhosphorDisplay_MouseDown(object sender, MouseEventArgs e)
+        {
+            mouseDragStart = 1.0 * (e.X - HorizontalDivisions * pxPerHorizontalDivision) / pxPerHorizontalDivision * HorizontalScale;
+            mouseDragTime = DateTime.Now;
+        }
+
+        private void ucPhosphorDisplay_MouseUp(object sender, MouseEventArgs e)
+        {
+            mouseDragStop = 1.0 * (e.X - HorizontalDivisions * pxPerHorizontalDivision) / pxPerHorizontalDivision * HorizontalScale;
+            
+            if (DateTime.Now.Subtract(mouseDragTime).TotalMilliseconds > 500)
+            {
+                mouseDragVisible = true;
+                Invalidate();
+            }
         }
     }
 }

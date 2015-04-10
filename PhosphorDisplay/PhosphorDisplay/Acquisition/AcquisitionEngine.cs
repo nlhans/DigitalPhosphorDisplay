@@ -229,7 +229,7 @@ namespace PhosphorDisplay.Acquisition
             var complexInSamples = new Complex[FFTSize * 2];
 
             for (int i = 0; i < FFTSize * 2; i++)
-                complexInSamples[i] = new Complex(w.Data[0][i] / Source.MaximumAmplitude/1.25, 0.0);
+                complexInSamples[i] = new Complex(w.Data[0][i] / Source.MaximumAmplitude, 0.0);
 
             complexInSamples = Hann(complexInSamples);
 
@@ -239,7 +239,7 @@ namespace PhosphorDisplay.Acquisition
             var fftWaveform = new Waveform(1, FFTSize);
             for (int k = 0; k < FFTSize; k++)
             {
-                var ampl = 20*Math.Log10(complexInSamples[k].Magnitude);
+                var ampl = 20*Math.Log10(complexInSamples[k].Magnitude/10);
                 var freq = k*Source.SampleRate/FFTSize/2;
                 fftWaveform.Store(freq, new float[1] { (float)ampl });
             }

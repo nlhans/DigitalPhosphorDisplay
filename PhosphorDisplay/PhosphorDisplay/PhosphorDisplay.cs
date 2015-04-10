@@ -41,6 +41,7 @@ namespace PhosphorDisplay
             displayTrig = new ucPhosphorDisplay();
             displayTrig.Channels = 1;
             displayTrig.DoubleClicked += displayTrig_DoubleClicked;
+            displayTrig.ProcessHighlight = CalculateRmsForHighlight;
 
             displayTrig.HorizontalScale = (float)(acqEngine.AcquisitionTime / displayTrig.HorizontalDivisions / 2);
             displayTrig.VerticalScale = new float[3] { 0.25f, 1, 1 };
@@ -53,6 +54,7 @@ namespace PhosphorDisplay
             displayOverview.VerticalScale = displayTrig.VerticalScale;
             displayOverview.HorizontalScale = 1.0f;
             displayOverview.lowContrast = true;
+            displayOverview.ProcessHighlight = CalculateRmsForHighlight;
 
             Controls.Add(displayOverview);
 
@@ -122,6 +124,23 @@ namespace PhosphorDisplay
                 dmm.Invalidate();
             };
             this.SizeChanged += Form1_SizeChanged;
+        }
+
+        private string CalculateRmsForHighlight(List<List<double>> waveforms, double timeStep)
+        {
+            if (!waveforms.Any()) return "none";
+            var wfms = waveforms.Where(x => x.Any());
+            if (!wfms.Any()) return "none";
+            var avgEnergy = wfms.Select(pts =>
+                                                       {
+                                                           return
+                                                               pts.Select(x => x*acqEngine.LastVoltageMeasurent*timeStep)
+                                                                   .Sum();
+                                                       }).Average();
+            var rmsCurrent = wfms.Select(pts => pts.Select(x => x * x * timeStep).Sum() * 1.0 / (timeStep * pts.Count())).Average() * 1000000;
+            rmsCurrent = Math.Sqrt(rmsCurrent)*1000;
+            var avgCurrent = wfms.SelectMany(x => x).Average() * 1000000;
+            return (avgEnergy * 1000000).ToString("0.000 uJ") + " (" + waveforms.Count() + "wfms) / " + (avgCurrent.ToString("0000.00 uA avg"))+" / " + (rmsCurrent.ToString("0000.00 uA rms"));
         }
 
         private void controls_UpdateRateChanged(float period)

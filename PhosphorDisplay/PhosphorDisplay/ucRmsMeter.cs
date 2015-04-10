@@ -54,15 +54,15 @@ namespace PhosphorDisplay
                 g.DrawString("RMS:", fontSmall, Brushes.Turquoise, 5, 5);
                 g.DrawString(Units.ToUnit(rmsCurrent, "A"), fontBig, Brushes.Turquoise, 8, 25);
 
-                var watts = sixDigitVoltage * rmsCurrent;
-                g.DrawString(Units.ToUnit(watts, "W"), fontBig, Brushes.Turquoise, 8, 65);
+                var ohms = sixDigitVoltage / rmsCurrent;
+                g.DrawString(Units.ToUnit(ohms, "R"), fontBig, Brushes.Turquoise, 8, 65);
             }else
             {
                 g.DrawString("Mean:", fontSmall, Brushes.Turquoise, 5, 5);
                 g.DrawString(Units.ToUnit(meanCurrent, "A"), fontBig, Brushes.Turquoise, 8, 25);
 
-                var ohms = sixDigitVoltage / meanCurrent;
-                g.DrawString(Units.ToUnit(ohms, "R"), fontBig, Brushes.Turquoise, 8, 65);
+                var watts = sixDigitVoltage * rmsCurrent;
+                g.DrawString(Units.ToUnit(watts, "W"), fontBig, Brushes.Turquoise, 8, 65);
             }
             g.DrawString(Units.ToUnit(sixDigitVoltage, "V"), fontBig, Brushes.Turquoise, 8, 45);
 
