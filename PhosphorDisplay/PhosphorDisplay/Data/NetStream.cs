@@ -272,7 +272,7 @@ namespace PhosphorDisplay.Data
                     var voltScale = voltCal2048/2.048f;
                     voltFlt -= voltCalZero;
                     voltFlt /= voltScale;
-                    voltFlt = 0;
+                    //voltFlt = 0;
                     if (voltFlt>-0.1 && voltFlt<12 && HighresVoltage != null)
                         HighresVoltage(voltFlt);
                 }
