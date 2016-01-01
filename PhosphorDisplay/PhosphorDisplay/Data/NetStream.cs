@@ -503,13 +503,13 @@ namespace PhosphorDisplay.Data
         {
             var ep = new IPEndPoint(IPAddress.Parse("192.168.1.198"), 3903);
             var u = new UdpClient();
-            var ddd = new byte[18 + payload.Length];
-            ddd[2] = (byte)(18 + payload.Length);
+            var ddd = new byte[16 + payload.Length];
+            ddd[0] = (byte)(16 + payload.Length);
 
-            ddd[4] = (byte)((ushort)cmd & 0xFF);
-            ddd[5] = (byte)((ushort)cmd >> 8);
+            ddd[2] = (byte)((ushort)cmd & 0xFF);
+            ddd[3] = (byte)((ushort)cmd >> 8);
             if (payload.Length > 0)
-                Array.Copy(payload, 0, ddd, 18, payload.Length);
+                Array.Copy(payload, 0, ddd, 16, payload.Length);
 
             u.Send(ddd, ddd.Length, ep);
 
